@@ -1,0 +1,95 @@
+/* ============================================
+   NIIMBOT B1 Label Print Styles
+   Label Size: 50mm × 20mm
+   ============================================ */
+
+@media print {
+  /* Set the page size to match the label */
+  @page {
+    size: 50mm 20mm;
+    margin: 0;
+  }
+
+  /* Hide everything on the page */
+  body > * {
+    display: none !important;
+  }
+
+  /* Only show the print container */
+  body > .niimbot-print-portal {
+    display: block !important;
+  }
+
+  /* Reset body styles for print */
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Label container */
+.niimbot-label {
+  width: 50mm;
+  height: 20mm;
+  padding: 1.5mm 2mm;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Left side: product info */
+.niimbot-label__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5mm;
+  padding-right: 2mm;
+}
+
+.niimbot-label__name {
+  font-size: 6pt;
+  font-weight: 700;
+  color: black;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin: 0;
+}
+
+.niimbot-label__price {
+  font-size: 8pt;
+  font-weight: 900;
+  color: black;
+  line-height: 1;
+  margin: 0;
+}
+
+.niimbot-label__price-symbol {
+  font-size: 5pt;
+  font-weight: 700;
+}
+
+/* Right side: barcode */
+.niimbot-label__barcode {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.niimbot-label__barcode svg {
+  height: 14mm !important;
+  width: auto !important;
+}
