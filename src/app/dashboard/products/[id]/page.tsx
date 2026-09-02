@@ -30,12 +30,15 @@ type ProductVariant = {
   variant_name: string;
   variant_value: string;
   sku: string;
+  price?: number;
+  stock_multiplier?: number;
 };
 
 type Product = {
   id: string;
   name: string;
   price: number;
+  cost_price?: number;
   stock: number;
   category: string;
   image_color: string;
@@ -202,7 +205,7 @@ export default function ProductDetailsPage() {
 
   // Dynamic Monthly Trend (Last 7 months)
   const generateSalesTrend = () => {
-    const trend = [];
+    const trend: { name: string; sales: number; year: number; monthIndex: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(1); // Set to the 1st of the month to prevent overflow on months with fewer days

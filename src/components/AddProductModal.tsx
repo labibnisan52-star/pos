@@ -126,7 +126,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
   const [warranty, setWarranty] = useState("");
   
   // Variants
-  const [variants, setVariants] = useState<{ image_url: string; variant_name: string; variant_value: string; sku: string; }[]>([]);
+  const [variants, setVariants] = useState<{ image_url: string; variant_name: string; variant_value: string; sku: string; price?: number; stock_multiplier?: number; }[]>([]);
 
   // Barcode Printing
   const barcodePrintRef = useRef<HTMLDivElement>(null);
