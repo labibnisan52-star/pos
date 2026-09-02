@@ -372,10 +372,11 @@ export default function ProductDetailsPage() {
                        let remaining = product.stock;
                        const parts = [];
                        for (const v of validVariants) {
-                         const qty = Math.floor(remaining / v.stock_multiplier);
+                         const multiplier = v.stock_multiplier || 1;
+                         const qty = Math.floor(remaining / multiplier);
                          if (qty > 0) {
                            parts.push(`${qty}x ${v.variant_value}`);
-                           remaining = remaining % v.stock_multiplier;
+                           remaining = remaining % multiplier;
                          }
                        }
                        return parts.length > 0 ? parts.join(' + ') : "0 units";
