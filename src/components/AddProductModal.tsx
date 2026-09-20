@@ -113,6 +113,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
   const [name, setName] = useState("");
   const [barcode, setBarcode] = useState("");
   const [category, setCategory] = useState("Home Goods");
+  const [categories, setCategories] = useState<string[]>(["Home Goods", "Electronics", "Personal Care", "Apparel", "Stationery"]);
   const [stock, setStock] = useState<number | "">("");
 
   // Advanced Product Details
@@ -187,6 +188,12 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
         setName(productToEdit.name || "");
         setBarcode(productToEdit.barcode || "");
         setCategory(productToEdit.category || "Home Goods");
+        setCategories(prev => {
+          if (productToEdit.category && !prev.includes(productToEdit.category)) {
+            return [...prev, productToEdit.category];
+          }
+          return prev;
+        });
         setStock(productToEdit.stock || "");
         setSupplierName("");
         setPurchasePaymentMethod("Cash");
@@ -556,18 +563,29 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
               <div>
                 <div className="flex justify-between items-end mb-2">
                   <label className="block text-sm font-semibold text-gray-700">Category</label>
-                  <button className="text-[10px] font-semibold text-blue-600 hover:underline">+ Add new</button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const newCat = window.prompt("Enter new category name:");
+                      if (newCat && newCat.trim() !== "") {
+                        const catName = newCat.trim();
+                        if (!categories.includes(catName)) {
+                          setCategories(prev => [...prev, catName]);
+                        }
+                        setCategory(catName);
+                      }
+                    }}
+                    className="text-[10px] font-semibold text-blue-600 hover:underline"
+                  >
+                    + Add new
+                  </button>
                 </div>
                 <select 
                   value={category}
                   onChange={e => setCategory(e.target.value)}
                   className="w-full px-3 py-3 bg-white text-gray-900 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 appearance-none"
                 >
-                  <option>Home Goods</option>
-                  <option>Electronics</option>
-                  <option>Personal Care</option>
-                  <option>Apparel</option>
-                  <option>Stationery</option>
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               
