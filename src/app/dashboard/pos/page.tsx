@@ -35,14 +35,7 @@ type Product = {
   barcode?: string;
 };
 
-const MOCK_PRODUCTS: Product[] = [
-  { id: "1", name: "Steel Water Bottle", price: 35.0, stock: 24, category: "Home Goods", image_color: "bg-indigo-100", barcode: "1001" },
-  { id: "2", name: "Potted Plant", price: 28.0, stock: 3, category: "Home Goods", image_color: "bg-green-100", barcode: "1002" },
-  { id: "3", name: "Classic Leather Wallet", price: 65.0, stock: 50, category: "Personal Care", image_color: "bg-amber-100", barcode: "1003" },
-  { id: "4", name: "Hand Soap Dispenser", price: 18.0, stock: 12, category: "Personal Care", image_color: "bg-orange-50", barcode: "1004" },
-  { id: "5", name: "Linen Notebook", price: 22.0, stock: 85, category: "Stationery", image_color: "bg-gray-200", barcode: "1005" },
-  { id: "6", name: "Noise Cancelling Headphones", price: 299.0, stock: 1, category: "Electronics", image_color: "bg-gray-300", barcode: "1006" },
-];
+const MOCK_PRODUCTS: Product[] = [];
 
 type CartItem = Product & { quantity: number };
 
