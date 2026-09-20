@@ -15,13 +15,18 @@ export async function POST(req: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    });
 
     // Clean up base64 string if it has a data URL prefix
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    const prompt = `Analyze this product image and provide the following details in a JSON format.
-Ensure the JSON is perfectly valid and contains ONLY these keys:
+    const prompt = `Analyze this product image and provide the following details in a perfectly valid JSON object.
+Use EXACTLY these keys (lowercase):
 {
   "name": "A short, descriptive product name",
   "category": "One of these: Home Goods, Electronics, Personal Care, Apparel, Stationery. Pick the best fit or suggest a new short one if none fit.",
@@ -41,22 +46,14 @@ Ensure the JSON is perfectly valid and contains ONLY these keys:
     const result = await model.generateContent([prompt, ...imageParts]);
     const response = await result.response;
     const text = response.text();
+    console.log("Raw Gemini Response:", text);
     
-    // Extract JSON from response (sometimes Gemini wraps it in ```json ... ```)
-    const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || text.match(/```\n?([\s\S]*?)\n?```/);
-    let jsonData = text;
-    
-    if (jsonMatch && jsonMatch[1]) {
-      jsonData = jsonMatch[1].trim();
-    } else {
-      jsonData = text.trim();
-    }
-
     let parsedData;
     try {
-      parsedData = JSON.parse(jsonData);
+      parsedData = JSON.parse(text);
+      console.log("Parsed Data:", parsedData);
     } catch (e) {
-      console.error("Failed to parse Gemini response as JSON:", jsonData);
+      console.error("Failed to parse Gemini response as JSON:", text);
       return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
     }
 

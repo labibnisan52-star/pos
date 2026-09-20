@@ -119,6 +119,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
   // Advanced Product Details
   const [productType, setProductType] = useState("Single Product");
   const [unit, setUnit] = useState("Piece");
+  const [units, setUnits] = useState<string[]>(["Piece", "Kg", "Box", "Dozen", "Liter", "Pack"]);
   const [brand, setBrand] = useState("");
   const [taxRate, setTaxRate] = useState("");
   const [taxType, setTaxType] = useState("");
@@ -209,6 +210,12 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
         setBankRate(17.0);
         setProductType(productToEdit.product_type || "Single Product");
         setUnit(productToEdit.unit || "Piece");
+        setUnits(prev => {
+          if (productToEdit.unit && !prev.includes(productToEdit.unit)) {
+            return [...prev, productToEdit.unit];
+          }
+          return prev;
+        });
         setBrand(productToEdit.brand || "");
         setTaxRate(productToEdit.tax_rate !== null ? productToEdit.tax_rate : "");
         setTaxType(productToEdit.tax_type || "");
@@ -554,18 +561,31 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Product Unit</label>
+                <div className="flex justify-between items-end mb-2">
+                  <label className="block text-sm font-semibold text-gray-700">Product Unit</label>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const newUnit = window.prompt("Enter new unit name:");
+                      if (newUnit && newUnit.trim() !== "") {
+                        const unitName = newUnit.trim();
+                        if (!units.includes(unitName)) {
+                          setUnits(prev => [...prev, unitName]);
+                        }
+                        setUnit(unitName);
+                      }
+                    }}
+                    className="text-[10px] font-semibold text-blue-600 hover:underline"
+                  >
+                    + Add new
+                  </button>
+                </div>
                 <select 
                   value={unit}
                   onChange={e => setUnit(e.target.value)}
                   className="w-full px-3 py-3 bg-white text-gray-900 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 appearance-none"
                 >
-                  <option value="Piece">Piece</option>
-                  <option value="Kg">Kg</option>
-                  <option value="Box">Box</option>
-                  <option value="Dozen">Dozen</option>
-                  <option value="Liter">Liter</option>
-                  <option value="Pack">Pack</option>
+                  {units.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
             </div>
