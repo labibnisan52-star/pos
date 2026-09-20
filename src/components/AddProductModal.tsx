@@ -150,6 +150,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
   const [uploadingImage, setUploadingImage] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [useAI, setUseAI] = useState(true); // Toggle for AI processing
+  const [analyzingImage, setAnalyzingImage] = useState(false);
 
   // Pricing
   const [bankRate, setBankRate] = useState<number>(17.0);
@@ -250,6 +251,59 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
   }, [isOpen, productToEdit, supabase]);
 
   if (!isOpen) return null;
+
+  const handleAnalyzeImage = async () => {
+    if (!imageUrl) return;
+    try {
+      setAnalyzingImage(true);
+      setErrorMsg("");
+      
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64data = reader.result;
+        
+        try {
+          const res = await fetch("/api/analyze-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ imageBase64: base64data }),
+          });
+          
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || "Failed to analyze image");
+          }
+          
+          const data = await res.json();
+          if (data.name) setName(data.name);
+          if (data.category) {
+            const catName = data.category;
+            if (!categories.includes(catName)) {
+              setCategories(prev => [...prev, catName]);
+            }
+            setCategory(catName);
+          }
+          if (data.brand) setBrand(data.brand);
+          if (data.description) setDescription(data.description);
+          
+        } catch (error: any) {
+          setErrorMsg(error.message || "Failed to analyze image with AI.");
+        } finally {
+          setAnalyzingImage(false);
+        }
+      };
+    } catch (error: any) {
+      console.error("Error preparing image for analysis:", error);
+      setErrorMsg("Failed to prepare image for AI analysis.");
+      setAnalyzingImage(false);
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -472,6 +526,18 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
                   Enhance image with AI (Removes background)
                 </label>
               </div>
+              {imageUrl && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={handleAnalyzeImage}
+                    disabled={analyzingImage}
+                    className="w-full py-2 bg-purple-50 text-purple-600 border border-purple-200 rounded-xl text-sm font-semibold hover:bg-purple-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {analyzingImage ? "Analyzing..." : "✨ Auto-fill product details with AI"}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Product Type & Unit */}
