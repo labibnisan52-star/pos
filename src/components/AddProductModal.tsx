@@ -178,6 +178,19 @@ export default function AddProductModal({ isOpen, onClose, onSuccess, productToE
     }
   }, [targetMargin, trueLandedCost]);
 
+  // Prevent scroll wheel from changing number inputs globally in this modal
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT' && (document.activeElement as HTMLInputElement).type === 'number') {
+        e.preventDefault();
+      }
+    };
+    
+    // We must use passive: false to allow e.preventDefault()
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, []);
+
   // Reset form when opened
   useEffect(() => {
     if (isOpen) {
