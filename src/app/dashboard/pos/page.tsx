@@ -22,7 +22,6 @@ import {
 import { createClient } from "@/utils/supabase/client";
 
 // --- MOCK DATA ---
-const CATEGORIES = ["All", "Electronics", "Home Goods", "Personal Care", "Stationery"];
 
 type Product = {
   id: string;
@@ -168,10 +167,10 @@ export default function POSPage() {
     const fetchProducts = async () => {
       if (navigator.onLine) {
         try {
-          const { data, error } = await supabase.from('pos_products').select('*');
+          const { data, error } = await supabase.from('products').select('*');
           if (!error && data) {
             setProducts(data);
-            localStorage.setItem('pos_products', JSON.stringify(data));
+            localStorage.setItem('pos_products_cache', JSON.stringify(data));
           }
         } catch (e) {
           console.warn("Failed fetching online, falling back to cache", e);
@@ -184,7 +183,7 @@ export default function POSPage() {
     };
 
     const loadFromCache = () => {
-      const cached = localStorage.getItem('pos_products');
+      const cached = localStorage.getItem('pos_products_cache');
       if (cached) {
         setProducts(JSON.parse(cached));
       }
@@ -194,6 +193,7 @@ export default function POSPage() {
   }, [supabase]);
 
   const displayProducts = products.length > 0 ? products : MOCK_PRODUCTS;
+  const categories = ["All", ...Array.from(new Set(displayProducts.map(p => p.category).filter(Boolean)))];
 
   const filteredProducts = displayProducts.filter(p => {
     const matchCategory = activeCategory === "All" || p.category === activeCategory;
@@ -359,7 +359,7 @@ export default function POSPage() {
         return p;
       });
       setProducts(updatedProducts);
-      localStorage.setItem('pos_products', JSON.stringify(updatedProducts));
+      localStorage.setItem('pos_products_cache', JSON.stringify(updatedProducts));
 
       showToast("Order saved offline. Will sync when internet returns.", "success");
       setView("receipt");
@@ -391,10 +391,10 @@ export default function POSPage() {
     setView("receipt");
 
     // 4. Refresh products list silently in background so POS is updated when returning
-    const { data } = await supabase.from('pos_products').select('*');
+    const { data } = await supabase.from('products').select('*');
     if (data) {
       setProducts(data);
-      localStorage.setItem('pos_products', JSON.stringify(data));
+      localStorage.setItem('pos_products_cache', JSON.stringify(data));
     }
   };
 
@@ -710,7 +710,7 @@ export default function POSPage() {
         {/* Categories */}
         <div className="px-4 pb-4 overflow-x-auto no-scrollbar">
           <div className="flex space-x-2">
-            {CATEGORIES.map(cat => (
+            {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}

@@ -127,7 +127,7 @@ DECLARE
   _product_id uuid;
   _original_qty integer;
   _already_returned integer;
-BEGIN
+BEGINstmen
   -- Get original qty and product
   SELECT product_id, quantity INTO _product_id, _original_qty
   FROM public.order_items WHERE id = _order_item_id;
