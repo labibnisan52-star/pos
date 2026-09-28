@@ -779,19 +779,28 @@ export default function POSPage() {
                   <p className="text-xs text-gray-500">{item.price.toFixed(2)} TK</p>
                 </div>
               </div>
-              <div className="flex items-center bg-[#f3f0ea] rounded-full p-1 shadow-inner">
+              <div className="flex items-center space-x-1">
+                <div className="flex items-center bg-[#f3f0ea] rounded-full p-1 shadow-inner">
+                  <button 
+                    onClick={() => updateQuantity(item.id, -1)}
+                    className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-gray-600 shadow-sm hover:text-gray-900"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="w-6 text-center text-xs font-bold text-gray-900">{item.quantity}</span>
+                  <button 
+                    onClick={() => updateQuantity(item.id, 1)}
+                    className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-gray-600 shadow-sm hover:text-gray-900"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
                 <button 
-                  onClick={() => updateQuantity(item.id, -1)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-gray-600 shadow-sm hover:text-gray-900"
+                  onClick={() => removeFromCart(item.id)} 
+                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Remove item"
                 >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <span className="w-6 text-center text-xs font-bold text-gray-900">{item.quantity}</span>
-                <button 
-                  onClick={() => updateQuantity(item.id, 1)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-gray-600 shadow-sm hover:text-gray-900"
-                >
-                  <Plus className="w-3 h-3" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
