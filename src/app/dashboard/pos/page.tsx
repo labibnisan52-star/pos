@@ -17,7 +17,11 @@ import {
   ArrowLeft,
   Printer,
   Wifi,
-  WifiOff
+  WifiOff,
+  Menu,
+  ShoppingBag,
+  ChevronUp,
+  QrCode
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -99,6 +103,7 @@ export default function POSPage() {
   const [isOnline, setIsOnline] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -658,16 +663,46 @@ export default function POSPage() {
       {/* Main Products Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#faf9f6]">
         {/* Top Header */}
-        <div className="p-4 flex items-center justify-between">
-          <div className="flex-1 flex items-center space-x-3 max-w-xl">
+        <div className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          {/* Mobile Header Top Row */}
+          <div className="w-full flex items-center justify-between md:hidden">
+            <div className="flex items-center space-x-3">
+              <button className="p-2 bg-gray-100 rounded-lg text-gray-700">
+                <Menu className="w-5 h-5" />
+              </button>
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-black text-white font-bold flex items-center justify-center rounded-lg">RZ</div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm leading-none">Labib Hassan</span>
+                  <div className="flex items-center mt-1 text-[10px] text-green-600 font-semibold border border-green-200 bg-green-50 px-1.5 rounded-full w-max">
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div> Live
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button className="p-2 bg-gray-100 rounded-lg text-gray-700">
+                <Plus className="w-5 h-5" />
+              </button>
+              <button 
+                className="px-3 py-2 bg-black text-white rounded-lg flex items-center space-x-1.5" 
+                onClick={() => setMobileCartOpen(true)}
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span className="font-bold text-sm">{cart.length > 0 ? cart.reduce((s, i) => s + i.quantity, 0) : 0}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 w-full flex items-center space-x-3 md:max-w-xl">
             <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
-                className="w-full pl-10 pr-4 py-3 bg-[#f3f0ea] border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 placeholder-gray-400"
-                placeholder="Scan barcode or search products..."
+                className="w-full pl-10 pr-12 py-3 bg-[#f3f0ea] border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 placeholder-gray-400"
+                placeholder="Search by name, SKU, or barcode..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -691,10 +726,15 @@ export default function POSPage() {
                   }
                 }}
               />
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                <div className="p-1.5 bg-white rounded-md shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50">
+                  <QrCode className="h-4 w-4 text-gray-600" />
+                </div>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center">
+          <div className="hidden md:flex items-center">
             {/* Sync Status Badge */}
             <div className={`flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${
               isOnline 
@@ -714,44 +754,164 @@ export default function POSPage() {
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+                className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
                   activeCategory === cat 
                     ? "bg-black text-white" 
-                    : "bg-[#f3f0ea] text-gray-600 hover:bg-gray-200"
+                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                {cat}
+                <span>{cat}</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs ${
+                  activeCategory === cat ? "bg-gray-800 text-gray-300" : "bg-gray-100 text-gray-500"
+                }`}>
+                  {displayProducts.filter(p => cat === "All" ? true : p.category === cat).length}
+                </span>
               </button>
             ))}
           </div>
         </div>
 
         {/* Product Grid */}
-        <div className="flex-1 overflow-y-auto p-4 pt-0">
+        <div className="flex-1 overflow-y-auto p-4 pt-0 pb-24 md:pb-4">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredProducts.map(product => (
               <div 
                 key={product.id} 
-                onClick={() => addToCart(product)}
-                className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow transform hover:-translate-y-1 duration-200"
+                className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col"
               >
-                <div className={`w-full h-32 rounded-xl mb-3 relative ${product.image_color || 'bg-gray-100'} overflow-hidden`}>
+                <div className={`w-full h-32 md:h-40 rounded-xl mb-3 relative ${product.image_color || 'bg-gray-100'} overflow-hidden`}>
                   {product.image_url && <img src={product.image_url} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />}
                   {/* Mock Image Content */}
-                  <div className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-full border border-gray-200 text-[10px] font-bold text-gray-700 z-10">
-                    {product.stock <= 5 ? `Low Stock (${product.stock})` : `${product.stock} in stock`}
+                  <div className={`absolute top-2 right-2 backdrop-blur-md px-2 py-0.5 rounded-full border text-[10px] font-bold z-10 ${
+                    product.stock <= 5 ? 'bg-gray-900/80 text-white border-gray-700' : 'bg-white/80 text-gray-700 border-gray-200'
+                  }`}>
+                    {product.stock <= 5 ? `• Low Stock (${product.stock})` : `${product.stock} in stock`}
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mb-1">{product.price.toFixed(2)} TK</p>
-                <h3 className="font-bold text-gray-900 text-sm leading-tight truncate">{product.name}</h3>
+                <div className="flex-1 flex flex-col justify-end">
+                  <p className="text-base font-bold text-gray-900 mb-0.5">৳{product.price.toFixed(2)}</p>
+                  <h3 className="text-gray-500 text-xs leading-tight truncate">{product.name}</h3>
+                </div>
+                <button 
+                  onClick={() => addToCart(product)}
+                  className="w-full mt-3 py-2 bg-[#f4f4f6] text-gray-800 font-semibold text-sm rounded-xl flex items-center justify-center space-x-1 hover:bg-gray-200 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add</span>
+                </button>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Right Sidebar: Mini Cart */}
-      <div className="w-80 lg:w-96 bg-white border-l border-gray-200 flex flex-col shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] z-10">
+      {/* Mobile Cart Overlay (Bottom Sheet) */}
+      <div className={`md:hidden fixed inset-0 z-40 transition-opacity duration-300 ${mobileCartOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+        <div className="absolute inset-0 bg-black/30" onClick={() => setMobileCartOpen(false)}></div>
+        
+        <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300 flex flex-col max-h-[85vh] ${mobileCartOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+          {/* Drag Handle */}
+          <div className="w-full flex justify-center pt-3 pb-1" onClick={() => setMobileCartOpen(false)}>
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full cursor-pointer"></div>
+          </div>
+          
+          <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-3xl">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-black text-white font-bold flex items-center justify-center rounded-lg">
+                {cart.length > 0 ? cart.reduce((s, i) => s + i.quantity, 0) : 0}
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-gray-900 leading-tight">Current Sale</h2>
+                <p className="text-[10px] text-gray-500">{cart.reduce((s, i) => s + i.quantity, 0)} items added</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <span className="font-bold text-lg text-gray-900">{subtotal.toFixed(2)} TK</span>
+              <button onClick={() => setMobileCartOpen(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                <ChevronUp className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+          </div>
+
+          {/* Cart Items List (Mobile) */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+            {cart.map(item => (
+              <div key={item.id} className="bg-white p-2 rounded-xl border border-gray-100 flex items-center justify-between">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className={`w-12 h-12 rounded-lg flex-shrink-0 ${item.image_color || 'bg-gray-100'} overflow-hidden`}>
+                    {item.image_url && <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="min-w-0 pr-2">
+                    <h4 className="font-bold text-xs text-gray-900 truncate">{item.name}</h4>
+                    <p className="text-xs text-gray-500 font-semibold mt-0.5">৳ {item.price.toFixed(2)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center bg-white border border-gray-200 rounded-full p-1">
+                  <button 
+                    onClick={() => updateQuantity(item.id, -1)}
+                    className="w-6 h-6 flex items-center justify-center text-gray-600"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="w-6 text-center text-xs font-bold text-gray-900">{item.quantity}</span>
+                  <button 
+                    onClick={() => updateQuantity(item.id, 1)}
+                    className="w-6 h-6 flex items-center justify-center text-gray-600"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {cart.length === 0 && (
+              <div className="h-40 flex flex-col items-center justify-center text-gray-400 space-y-4">
+                <ShoppingBag className="w-10 h-10 opacity-20" />
+                <p className="text-sm font-medium">Cart is empty</p>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Cart Footer */}
+          <div className="p-4 bg-white border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+            <button 
+              onClick={() => { setMobileCartOpen(false); setView("checkout"); }}
+              disabled={cart.length === 0}
+              className="w-full py-3.5 bg-black text-white font-bold rounded-xl flex items-center justify-center disabled:opacity-50"
+            >
+              Checkout <ArrowRight className="w-4 h-4 ml-2" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating Bottom Bar for Mobile (when sheet is closed) */}
+      {!mobileCartOpen && cart.length > 0 && (
+        <div className="md:hidden fixed bottom-4 left-4 right-4 z-30">
+          <div 
+            onClick={() => setMobileCartOpen(true)}
+            className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 flex items-center justify-between cursor-pointer"
+          >
+             <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-black text-white font-bold flex items-center justify-center rounded-xl">
+                {cart.reduce((s, i) => s + i.quantity, 0)}
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-gray-900 leading-tight">Current Sale</h2>
+                <p className="text-[10px] text-gray-500">{cart.reduce((s, i) => s + i.quantity, 0)} items added</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <span className="font-bold text-lg text-gray-900">{subtotal.toFixed(2)} TK</span>
+              <div className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center">
+                <ChevronUp className="w-5 h-5 text-gray-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Right Sidebar: Mini Cart (Desktop) */}
+      <div className="hidden md:flex w-80 lg:w-96 bg-white border-l border-gray-200 flex-col shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] z-10">
         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-900">Current Sale</h2>
           <div className="relative">
