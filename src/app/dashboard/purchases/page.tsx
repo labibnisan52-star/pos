@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Plus, Search, ShoppingCart, User, X } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import { calculateLineTotal, formatBDT } from "@/lib/calculations";
+import { calculateLineTotal, formatBDT, parseNumericInput, roundMoney } from "@/lib/calculations";
 
 type PurchaseOrder = {
   id: string;
   created_at: string;
+  product_id?: string | null;
   supplier_name: string;
   product_name: string;
   quantity: number;
@@ -47,7 +48,13 @@ export default function PurchasesPage() {
       supabase.from("products").select("id, name, stock").order("name"),
     ]);
 
-    if (poRes.data) setPurchases(poRes.data);
+    if (poRes.data) {
+      setPurchases(
+        (poRes.data as PurchaseOrder[]).filter(
+          (po) => po.product_id !== null && (Number(po.quantity) || 0) > 0
+        )
+      );
+    }
     if (prodRes.data) setProducts(prodRes.data);
     setLoading(false);
   }, [supabase]);
@@ -69,7 +76,8 @@ export default function PurchasesPage() {
     if (!product) return;
 
     const qtyNum = Math.max(1, parseInt(quantity, 10) || 1);
-    const totalCost = calculateLineTotal(unitCost, qtyNum);
+    const parsedUnitCost = roundMoney(parseNumericInput(unitCost).value);
+    const totalCost = calculateLineTotal(parsedUnitCost, qtyNum);
 
     setSaving(true);
     try {
@@ -82,6 +90,7 @@ export default function PurchasesPage() {
             product_name: product.name,
             quantity: qtyNum,
             remaining_quantity: qtyNum,
+            cost_bdt: parsedUnitCost,
             total_cost: totalCost,
             payment_method: paymentMethod,
             status: "Received",
@@ -89,9 +98,15 @@ export default function PurchasesPage() {
         ]);
 
       if (!insertError) {
+        const productUpdate: Record<string, number> = {
+          stock: (Number(product.stock) || 0) + qtyNum,
+        };
+        if (parsedUnitCost > 0) {
+          productUpdate.cost_price = parsedUnitCost;
+        }
         await supabase
           .from("products")
-          .update({ stock: (Number(product.stock) || 0) + qtyNum })
+          .update(productUpdate)
           .eq("id", selectedProductId);
 
         setSelectedProductId("");

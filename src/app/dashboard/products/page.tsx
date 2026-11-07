@@ -65,6 +65,7 @@ export default function InventoryPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this product?")) {
+      await supabase.from("purchase_orders").delete().eq("product_id", id);
       await supabase.from("products").delete().eq("id", id);
       fetchProducts();
     }

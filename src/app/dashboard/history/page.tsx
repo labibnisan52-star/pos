@@ -56,6 +56,7 @@ type SaleOrder = {
 type PurchaseOrder = {
   id: string;
   created_at: string;
+  product_id?: string | null;
   supplier_name: string;
   product_name: string;
   quantity: number;
@@ -255,7 +256,11 @@ export default function HistoryPage() {
         .order("created_at", { ascending: false });
 
       if (purchasesData) {
-        setPurchaseOrders(purchasesData as PurchaseOrder[]);
+        // Ignore orphan purchase rows from deleted products (product_id === null) or 0-qty rows
+        const validPurchases = (purchasesData as PurchaseOrder[]).filter(
+          (po) => po.product_id !== null && (Number(po.quantity) || 0) > 0
+        );
+        setPurchaseOrders(validPurchases);
       }
     } catch (err) {
       console.error("Failed to fetch history:", err);

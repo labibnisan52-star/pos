@@ -482,7 +482,8 @@ export default function AddProductModal({
       }
     }
 
-    // Log initial stock intake record on new product creation
+    // Log initial stock intake record on new product creation,
+    // or sync existing purchase_orders when editing a product's buying cost/stock
     if (!productToEdit && parsedStock > 0) {
       const totalCost = calculateLineTotal(trueLandedCost, parsedStock);
       await supabase.from("purchase_orders").insert([
@@ -502,6 +503,61 @@ export default function AddProductModal({
           status: "Received",
         },
       ]);
+    } else if (productToEdit && productData?.id) {
+      const { data: existingPOs } = await supabase
+        .from("purchase_orders")
+        .select("id, quantity")
+        .eq("product_id", productData.id)
+        .order("created_at", { ascending: true });
+
+      if (!existingPOs || existingPOs.length === 0) {
+        if (parsedStock > 0) {
+          await supabase.from("purchase_orders").insert([
+            {
+              product_id: productData.id,
+              product_name: name.trim(),
+              supplier_name: "Direct Intake",
+              quantity: parsedStock,
+              remaining_quantity: parsedStock,
+              cost_cny: costCurrency === "CNY" ? roundMoney(numericCostCNY) : 0,
+              cost_bdt: costBDT,
+              shipping_bdt: roundMoney(numericShippingBDT),
+              total_cost: calculateLineTotal(trueLandedCost, parsedStock),
+              selling_price: roundMoney(parsedPrice.value),
+              payment_method: "Cash",
+              received_by: "Store Manager",
+              status: "Received",
+            },
+          ]);
+        }
+      } else if (existingPOs.length === 1) {
+        // Single batch for this product: keep it aligned with the edited product cost & stock
+        await supabase
+          .from("purchase_orders")
+          .update({
+            product_name: name.trim(),
+            quantity: parsedStock,
+            remaining_quantity: parsedStock,
+            cost_bdt: roundMoney(trueLandedCost),
+            total_cost: calculateLineTotal(trueLandedCost, parsedStock),
+            selling_price: roundMoney(parsedPrice.value),
+          })
+          .eq("id", existingPOs[0].id);
+      } else {
+        // Multiple batches: update each batch's unit cost & name to match the corrected buying price
+        for (const po of existingPOs) {
+          const poQty = Math.max(0, Number(po.quantity) || 0);
+          await supabase
+            .from("purchase_orders")
+            .update({
+              product_name: name.trim(),
+              cost_bdt: roundMoney(trueLandedCost),
+              total_cost: calculateLineTotal(trueLandedCost, poQty),
+              selling_price: roundMoney(parsedPrice.value),
+            })
+            .eq("id", po.id);
+        }
+      }
     }
 
     setLoading(false);
