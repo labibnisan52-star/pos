@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "@/styles/niimbot-print.css";
@@ -14,9 +14,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#ffffff",
+  colorScheme: "light",
+};
+
 export const metadata: Metadata = {
-  title: "POS System",
-  description: "Offline-First Point of Sale",
+  title: "Rizq POS — Footwear & Shoe Store",
+  description: "Point of Sale & Inventory Management for Rizq",
   manifest: "/manifest.json",
 };
 
@@ -30,10 +38,8 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+      <body className="min-h-full flex flex-col overflow-x-hidden bg-white text-gray-900">
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

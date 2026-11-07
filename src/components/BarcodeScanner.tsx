@@ -169,16 +169,23 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
       {/* Header */}
       <div className="flex justify-between items-center p-4 bg-black/50 backdrop-blur-md absolute top-0 left-0 right-0 z-10">
         <h2 className="text-white font-bold text-lg">Scan Barcode</h2>
-        <div className="flex space-x-4">
+        <div className="flex space-x-3">
           {isFlashSupported && (
             <button 
+              type="button"
               onClick={toggleFlash}
-              className={`p-2 rounded-full ${isFlashOn ? 'bg-yellow-400 text-black' : 'bg-gray-800 text-white'}`}
+              aria-label="Toggle flash"
+              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full ${isFlashOn ? 'bg-yellow-400 text-black' : 'bg-gray-800 text-white'}`}
             >
               <Flashlight className="w-5 h-5" />
             </button>
           )}
-          <button onClick={onClose} className="p-2 bg-gray-800 text-white rounded-full">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close scanner"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-gray-800 text-white rounded-full"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>

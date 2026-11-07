@@ -250,22 +250,21 @@ export default function NiimbotLabelPrint({
               <button 
                 type="button"
                 onClick={() => setPrintQty(q => Math.max(1, q - 1))}
-                className="w-10 h-10 rounded-lg bg-white shadow-sm border border-gray-200 flex items-center justify-center font-bold text-gray-700 hover:bg-gray-100 text-lg"
+                className="w-11 h-11 rounded-lg bg-white shadow-sm border border-gray-200 flex items-center justify-center font-bold text-gray-700 hover:bg-gray-100 text-lg"
               >
                 -
               </button>
               <input 
-                type="number"
-                min={1}
-                max={500}
+                type="text"
+                inputMode="numeric"
                 value={printQty}
-                onChange={e => setPrintQty(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-20 text-center font-bold text-xl text-gray-900 bg-transparent focus:outline-none"
+                onChange={e => setPrintQty(Math.max(1, parseInt(e.target.value.replace(/[^0-9]/g, ""), 10) || 1))}
+                className="w-20 min-h-[44px] text-center font-bold text-xl text-gray-900 bg-transparent focus:outline-none"
               />
               <button 
                 type="button"
                 onClick={() => setPrintQty(q => q + 1)}
-                className="w-10 h-10 rounded-lg bg-white shadow-sm border border-gray-200 flex items-center justify-center font-bold text-gray-700 hover:bg-gray-100 text-lg"
+                className="w-11 h-11 rounded-lg bg-white shadow-sm border border-gray-200 flex items-center justify-center font-bold text-gray-700 hover:bg-gray-100 text-lg"
               >
                 +
               </button>
@@ -278,7 +277,7 @@ export default function NiimbotLabelPrint({
                   key={n}
                   type="button"
                   onClick={() => setPrintQty(n)}
-                  className={`flex-1 py-1 text-xs font-semibold rounded-md border ${
+                  className={`flex-1 min-h-[40px] py-1.5 text-xs font-semibold rounded-lg border ${
                     printQty === n 
                       ? 'bg-black text-white border-black' 
                       : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
@@ -293,7 +292,7 @@ export default function NiimbotLabelPrint({
               <button 
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+                className="flex-1 min-h-[44px] py-2.5 rounded-xl font-semibold text-sm text-gray-600 hover:bg-gray-100 transition-colors"
               >
                 Cancel
               </button>
@@ -304,7 +303,7 @@ export default function NiimbotLabelPrint({
                   executePrint(printQty);
                 }}
                 disabled={status.isConnecting || status.isPrinting}
-                className="flex-1 py-2.5 rounded-xl font-semibold text-sm bg-black text-white hover:bg-gray-800 transition-colors shadow-md flex items-center justify-center disabled:opacity-50"
+                className="flex-1 min-h-[44px] py-2.5 rounded-xl font-semibold text-sm bg-black text-white hover:bg-gray-800 transition-colors shadow-md flex items-center justify-center disabled:opacity-50"
               >
                 {status.isPrinting ? "Printing..." : `Print ${printQty} ${printQty === 1 ? 'Label' : 'Labels'}`}
               </button>

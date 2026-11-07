@@ -1,30 +1,18 @@
 /* ============================================
-   NIIMBOT B1 Label Print Styles
-   Label Size: 50mm × 20mm
+   NIIMBOT B1 Label Print Styles (Scoped)
+   & Thermal Receipt Print Styles (58mm / 80mm)
    ============================================ */
 
 @media print {
-  /* Set the page size to match the label */
-  @page {
-    size: 50mm 20mm;
-    margin: 0;
-  }
-
-  /* Hide everything on the page */
-  body > * {
+  body.printing-niimbot-label > * {
     display: none !important;
   }
 
-  /* Only show the print container */
-  body > .niimbot-print-portal {
+  body.printing-niimbot-label > .niimbot-print-portal {
     display: block !important;
   }
 
-  /* Reset body styles for print */
   body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -44,7 +32,6 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Left side: product info */
 .niimbot-label__info {
   flex: 1;
   min-width: 0;
@@ -81,7 +68,6 @@
   font-weight: 700;
 }
 
-/* Right side: barcode */
 .niimbot-label__barcode {
   flex-shrink: 0;
   display: flex;
