@@ -818,6 +818,14 @@ export default function POSPage() {
   // Mobile sheet & scanner
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scanFromCamera, setScanFromCamera] = useState(false);
+  const [cameraScanPrompt, setCameraScanPrompt] = useState<{
+    status: "added" | "error";
+    productName?: string;
+    variantLabel?: string | null;
+    price?: number;
+    message?: string;
+  } | null>(null);
 
   // Connectivity & Offline Queue
   const [isOnline, setIsOnline] = useState(true);
@@ -1260,35 +1268,87 @@ export default function POSPage() {
   );
 
   const processScannedCode = useCallback(
-    (code: string) => {
+    (code: string, fromCamera = false) => {
+      if (fromCamera) {
+        setIsScannerOpen(false);
+      }
+
       const match = lookupByCode(code);
       if (!match) {
-        showToast(`No product found for code "${code.trim()}".`, "error");
+        if (fromCamera) {
+          playBeep("error");
+          setCameraScanPrompt({
+            status: "error",
+            message: `No product found for barcode "${code.trim()}".`,
+          });
+        } else {
+          showToast(`No product found for code "${code.trim()}".`, "error");
+        }
         return;
       }
 
       if ((Number(match.product.stock) || 0) <= 0) {
-        showToast(`"${match.product.name}" is out of stock.`, "error");
+        if (fromCamera) {
+          playBeep("error");
+          setCameraScanPrompt({
+            status: "error",
+            productName: match.product.name,
+            message: `"${match.product.name}" is out of stock.`,
+          });
+        } else {
+          showToast(`"${match.product.name}" is out of stock.`, "error");
+        }
         return;
       }
 
       if (!match.variant) {
         const prodVariants = variantsByProduct.get(match.product.id) || [];
         if (prodVariants.length > 0) {
+          setScanFromCamera(fromCamera);
           setVariantPickerProduct(match.product);
           setSearchQuery("");
           return;
         }
       }
 
+      const unitPrice =
+        match.variant?.price !== null &&
+        match.variant?.price !== undefined &&
+        Number(match.variant.price) > 0
+          ? Number(match.variant.price)
+          : Number(match.product.price) || 0;
+      const variantLabel = match.variant
+        ? match.variant.variant_name
+          ? `${match.variant.variant_name}: ${match.variant.variant_value}`
+          : match.variant.variant_value
+        : null;
+
       addResolvedItemToCart(match.product, match.variant);
       if (typeof navigator !== "undefined" && navigator.vibrate) {
         navigator.vibrate(150);
       }
-      showToast(`Added "${match.product.name}"`, "success");
       setSearchQuery("");
+
+      if (fromCamera) {
+        playBeep("success");
+        setCameraScanPrompt({
+          status: "added",
+          productName: match.product.name,
+          variantLabel,
+          price: unitPrice,
+        });
+      } else {
+        showToast(`Added "${match.product.name}"`, "success");
+      }
     },
     [lookupByCode, variantsByProduct, addResolvedItemToCart, showToast]
+  );
+
+  const handleCameraScan = useCallback(
+    (code: string) => {
+      processScannedCode(code, true);
+    },
+    [processScannedCode]
   );
 
   // Hardware USB/Bluetooth barcode scanner listener
@@ -1811,7 +1871,10 @@ export default function POSPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setVariantPickerProduct(null)}
+                onClick={() => {
+                  setVariantPickerProduct(null);
+                  setScanFromCamera(false);
+                }}
                 aria-label="Close variant selector"
                 className="w-11 h-11 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100"
               >
@@ -1836,8 +1899,19 @@ export default function POSPage() {
                       key={v.id}
                       type="button"
                       onClick={() => {
+                        const prodName = variantPickerProduct.name;
                         addResolvedItemToCart(variantPickerProduct, v);
                         setVariantPickerProduct(null);
+                        if (scanFromCamera) {
+                          setScanFromCamera(false);
+                          playBeep("success");
+                          setCameraScanPrompt({
+                            status: "added",
+                            productName: prodName,
+                            variantLabel: label,
+                            price: vPrice,
+                          });
+                        }
                       }}
                       className="w-full min-h-[52px] px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-900 hover:bg-gray-50 flex items-center justify-between transition-colors"
                     >
@@ -1863,10 +1937,110 @@ export default function POSPage() {
         </div>
       )}
 
+      {/* Post-Camera-Scan Prompt: Ask if cashier wants to scan more products */}
+      {cameraScanPrompt && (
+        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl p-5 sm:p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                    cameraScanPrompt.status === "added"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-red-100 text-red-600"
+                  }`}
+                >
+                  {cameraScanPrompt.status === "added" ? (
+                    <Check className="w-6 h-6 stroke-[2.5]" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                    {cameraScanPrompt.status === "added"
+                      ? "Added to Cart"
+                      : "Scan Notice"}
+                  </p>
+                  {cameraScanPrompt.status === "added" ? (
+                    <>
+                      <h3 className="text-base font-extrabold text-gray-900 truncate">
+                        {cameraScanPrompt.productName}
+                      </h3>
+                      <p className="text-xs font-semibold text-gray-500">
+                        {cameraScanPrompt.variantLabel
+                          ? `${cameraScanPrompt.variantLabel} • `
+                          : ""}
+                        ৳{formatBDT(cameraScanPrompt.price || 0)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-bold text-red-600">
+                      {cameraScanPrompt.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCameraScanPrompt(null)}
+                aria-label="Close prompt"
+                className="min-w-[44px] min-h-[44px] rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Live Cart Summary */}
+            <div className="p-3.5 rounded-2xl bg-[#f3f0ea] flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-600">
+                Cart ({totals.itemCount}{" "}
+                {totals.itemCount === 1 ? "item" : "items"})
+              </span>
+              <span className="text-base font-black text-gray-900">
+                ৳{formatBDT(totals.grandTotal)}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              <p className="text-sm font-extrabold text-gray-900 text-center">
+                Do you want to scan more products?
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraScanPrompt(null);
+                  setIsScannerOpen(true);
+                }}
+                className="w-full min-h-[50px] py-3 px-4 bg-black hover:bg-gray-800 text-white rounded-2xl text-sm font-extrabold flex items-center justify-center gap-2 shadow-md transition-colors"
+              >
+                <QrCode className="w-5 h-5" />
+                <span>Yes, Scan Another Product</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraScanPrompt(null);
+                  if (typeof window !== "undefined" && window.innerWidth < 768) {
+                    setMobileCartOpen(true);
+                  }
+                }}
+                className="w-full min-h-[48px] py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>No, Go to Cart &amp; Checkout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Camera Barcode Scanner */}
       {isScannerOpen && (
         <BarcodeScanner
-          onScan={processScannedCode}
+          onScan={handleCameraScan}
           onClose={() => setIsScannerOpen(false)}
         />
       )}
