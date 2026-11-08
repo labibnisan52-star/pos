@@ -108,7 +108,7 @@ export default function InventoryPage() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#faf9f6] p-4 sm:p-6 lg:p-8 overflow-y-auto font-sans no-scrollbar">
+    <div className="flex-1 h-full overflow-y-auto bg-[#faf9f6] p-4 sm:p-6 lg:p-8 font-sans no-scrollbar">
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
         <div>
@@ -168,7 +168,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Main Card */}
-      <div className="bg-white rounded-2xl border border-gray-200/80 flex-1 flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200/80 overflow-hidden">
         {/* Toolbar */}
         <div className="p-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex flex-col sm:flex-row gap-2.5 w-full lg:w-auto">
@@ -373,7 +373,7 @@ export default function InventoryPage() {
             </div>
 
             {/* Desktop Table (md+) */}
-            <div className="hidden md:block flex-1 overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-white border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">

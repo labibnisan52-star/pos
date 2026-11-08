@@ -124,6 +124,7 @@ export default function AddProductModal({
 
   // Prevent scroll wheel from changing number inputs globally in this modal
   useEffect(() => {
+    if (!isOpen) return;
     const handleWheel = (e: WheelEvent) => {
       if (
         document.activeElement &&
@@ -136,7 +137,7 @@ export default function AddProductModal({
 
     window.addEventListener("wheel", handleWheel, { passive: false });
     return () => window.removeEventListener("wheel", handleWheel);
-  }, []);
+  }, [isOpen]);
 
   // Reset or populate form when opened
   useEffect(() => {
