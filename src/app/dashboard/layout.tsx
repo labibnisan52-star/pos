@@ -18,6 +18,7 @@ import {
   Briefcase,
   Menu,
   X,
+  Globe,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
@@ -54,15 +55,26 @@ export default function DashboardLayout({
     { name: "History", href: "/dashboard/history", icon: History },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart2 },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    {
+      name: "Public Catalog",
+      href: "/catalog",
+      icon: Globe,
+      external: true,
+    },
   ];
 
   const navItems =
     role === "owner"
       ? allNavItems
       : allNavItems.filter((item) =>
-          ["POS", "Returns", "Customers", "History", "Settings"].includes(
-            item.name
-          )
+          [
+            "POS",
+            "Returns",
+            "Customers",
+            "History",
+            "Settings",
+            "Public Catalog",
+          ].includes(item.name)
         );
 
   const currentNav = allNavItems.find(
@@ -157,6 +169,8 @@ export default function DashboardLayout({
                     <Link
                       key={item.name}
                       href={item.href}
+                      target={item.external ? "_blank" : undefined}
+                      rel={item.external ? "noopener noreferrer" : undefined}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`min-h-[48px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                         isActive
@@ -243,6 +257,8 @@ export default function DashboardLayout({
                 <Link
                   key={item.name}
                   href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noopener noreferrer" : undefined}
                   title={!isExpanded ? item.name : undefined}
                   className={`min-h-[44px] flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
                     isActive

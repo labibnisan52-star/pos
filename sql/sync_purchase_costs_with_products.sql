@@ -85,3 +85,4 @@ SELECT
   COUNT(*) AS synced_batches,
   ROUND(COALESCE(SUM(total_cost), 0), 2) AS new_total_purchase_cost
 FROM public.purchase_orders;
+

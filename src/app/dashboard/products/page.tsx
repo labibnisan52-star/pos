@@ -10,6 +10,8 @@ import {
   Printer,
   Loader2,
   Package,
+  ExternalLink,
+  Share2,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
@@ -119,17 +121,30 @@ export default function InventoryPage() {
             Manage Rizq footwear catalog, barcodes, and stock levels
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setProductToEdit(null);
-            setIsModalOpen(true);
-          }}
-          className="min-h-[46px] px-5 py-2.5 bg-black text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-gray-800 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Product</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/catalog"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-h-[46px] px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+            title="Open customer-facing public catalog"
+          >
+            <ExternalLink className="w-4 h-4 text-gray-500" />
+            <span className="hidden sm:inline">View Public Catalog</span>
+            <span className="sm:hidden">Catalog</span>
+          </a>
+          <button
+            type="button"
+            onClick={() => {
+              setProductToEdit(null);
+              setIsModalOpen(true);
+            }}
+            className="min-h-[46px] px-5 py-2.5 bg-black text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Product</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
