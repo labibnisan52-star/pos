@@ -17,6 +17,7 @@ import {
   CircleDollarSign,
   Boxes,
   Plus,
+  Printer,
 } from "lucide-react";
 import Barcode from "react-barcode";
 import { useReactToPrint } from "react-to-print";
@@ -44,18 +45,26 @@ interface VariantFormRow {
   stock_multiplier?: number;
 }
 
-const DEFAULT_SHOE_CATEGORIES = [
-  "Sneakers",
-  "Formal",
-  "Loafers",
-  "Sandals",
-  "Boots",
-  "Sports",
+const DEFAULT_CATEGORIES = [
+  "Home Goods",
+  "Electronics",
+  "Personal Care",
+  "Apparel",
+  "Stationery",
+  "Footwear",
   "Accessories",
 ];
 
-const DEFAULT_SHOE_UNITS = ["Pair", "Piece", "Box", "Set"];
-const COMMON_SHOE_SIZES = ["39", "40", "41", "42", "43", "44", "45"];
+const DEFAULT_UNITS = [
+  "Piece",
+  "Kg",
+  "Box",
+  "Dozen",
+  "Liter",
+  "Pack",
+  "Pair",
+  "Set",
+];
 
 export default function AddProductModal({
   isOpen,
@@ -68,15 +77,15 @@ export default function AddProductModal({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Step 1: Basic Info
+  // Step 1: Basic Product Information
   const [name, setName] = useState("");
   const [barcode, setBarcode] = useState("");
-  const [category, setCategory] = useState("Sneakers");
+  const [category, setCategory] = useState("Home Goods");
   const [categories, setCategories] =
-    useState<string[]>(DEFAULT_SHOE_CATEGORIES);
+    useState<string[]>(DEFAULT_CATEGORIES);
   const [productType, setProductType] = useState("Single Product");
-  const [unit, setUnit] = useState("Pair");
-  const [units, setUnits] = useState<string[]>(DEFAULT_SHOE_UNITS);
+  const [unit, setUnit] = useState("Piece");
+  const [units, setUnits] = useState<string[]>(DEFAULT_UNITS);
   const [brand, setBrand] = useState("");
   const [description, setDescription] = useState("");
 
@@ -89,7 +98,7 @@ export default function AddProductModal({
   const [imageEnhanced, setImageEnhanced] = useState(false);
   const [aiStatusText, setAiStatusText] = useState("");
 
-  // Step 2: Variants & Sizes
+  // Step 2: Variants & Options
   const [variants, setVariants] = useState<VariantFormRow[]>([]);
 
   // Step 3: Pricing & Landed Cost
@@ -101,7 +110,7 @@ export default function AddProductModal({
   const [sellingPriceBDT, setSellingPriceBDT] = useState<string>("");
   const [targetMargin, setTargetMargin] = useState<string>("");
 
-  // Step 4: Stock, Supplier & Warranty
+  // Step 4: Stock, Supplier, Warranty & Funding
   const [stock, setStock] = useState<string>("");
   const [supplierName, setSupplierName] = useState("");
   const [purchasePaymentMethod, setPurchasePaymentMethod] = useState<
@@ -171,19 +180,32 @@ export default function AddProductModal({
     setCurrentStep(1);
     setErrorMsg("");
 
-    const fetchInvestors = async () => {
-      const { data } = await supabase
+    const fetchInitialData = async () => {
+      // 1. Fetch investors
+      const { data: invData } = await supabase
         .from("investors")
         .select("id, name")
         .order("name");
-      if (data) setInvestors(data);
+      if (invData) setInvestors(invData);
+
+      // 2. Fetch all existing categories from products table to enrich dropdown
+      const { data: prodCats } = await supabase
+        .from("products")
+        .select("category")
+        .not("category", "is", null);
+      if (prodCats && prodCats.length > 0) {
+        const unique = Array.from(
+          new Set(prodCats.map((p: any) => p.category).filter(Boolean))
+        ) as string[];
+        setCategories((prev) => Array.from(new Set([...prev, ...unique])));
+      }
     };
-    fetchInvestors();
+    fetchInitialData();
 
     if (productToEdit) {
       setName(productToEdit.name || "");
       setBarcode(productToEdit.barcode || "");
-      const editCategory = productToEdit.category || "Sneakers";
+      const editCategory = productToEdit.category || "Home Goods";
       setCategory(editCategory);
       setCategories((prev) =>
         editCategory && !prev.includes(editCategory)
@@ -210,7 +232,7 @@ export default function AddProductModal({
       setErrorMsg("");
       setImageUrl(productToEdit.image_url || "");
       setProductType(productToEdit.product_type || "Single Product");
-      const editUnit = productToEdit.unit || "Pair";
+      const editUnit = productToEdit.unit || "Piece";
       setUnit(editUnit);
       setUnits((prev) =>
         editUnit && !prev.includes(editUnit) ? [...prev, editUnit] : prev
@@ -222,7 +244,7 @@ export default function AddProductModal({
       setFundingSource(productToEdit.funding_source || "Me");
       setInvestorId(productToEdit.investor_id || "");
 
-      // Load existing shoe variants if editing
+      // Load existing variants if editing
       if (productToEdit.id) {
         supabase
           .from("product_variants")
@@ -234,7 +256,7 @@ export default function AddProductModal({
               setVariants(
                 existingVariants.map((v: any) => ({
                   image_url: v.image_url || "",
-                  variant_name: v.variant_name || "Size",
+                  variant_name: v.variant_name || "Option",
                   variant_value: v.variant_value || "",
                   sku: v.sku || "",
                   price:
@@ -255,7 +277,7 @@ export default function AddProductModal({
     } else {
       setName("");
       setBarcode(Math.floor(10000000 + Math.random() * 90000000).toString());
-      setCategory("Sneakers");
+      setCategory("Home Goods");
       setStock("");
       setSupplierName("");
       setPurchasePaymentMethod("Cash");
@@ -270,7 +292,7 @@ export default function AddProductModal({
       setImageEnhanced(false);
       setBankRate("17.0");
       setProductType("Single Product");
-      setUnit("Pair");
+      setUnit("Piece");
       setBrand("");
       setDescription("");
       setHasWarranty(false);
@@ -360,28 +382,28 @@ export default function AddProductModal({
           ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, size, size);
 
-          // 2. Center and scale shoe with 14% margin
-          const maxDim = size * 0.78;
+          // 2. Center and scale product with 12% margin
+          const maxDim = size * 0.8;
           const scale = Math.min(maxDim / img.width, maxDim / img.height);
           const drawW = img.width * scale;
           const drawH = img.height * scale;
           const drawX = (size - drawW) / 2;
           const drawY = (size - drawH) / 2;
 
-          // 3. Soft ambient contact shadow under sole
-          const shadowY = drawY + drawH * 0.95;
+          // 3. Subtle ambient contact shadow under product
+          const shadowY = drawY + drawH * 0.96;
           const shadowRadiusX = drawW * 0.38;
-          const shadowRadiusY = drawH * 0.055;
+          const shadowRadiusY = drawH * 0.05;
           const shadowGrad = ctx.createRadialGradient(
             size / 2,
             shadowY,
-            shadowRadiusY * 0.4,
+            shadowRadiusY * 0.3,
             size / 2,
             shadowY,
             shadowRadiusX
           );
-          shadowGrad.addColorStop(0, "rgba(0, 0, 0, 0.16)");
-          shadowGrad.addColorStop(0.5, "rgba(0, 0, 0, 0.05)");
+          shadowGrad.addColorStop(0, "rgba(0, 0, 0, 0.15)");
+          shadowGrad.addColorStop(0.5, "rgba(0, 0, 0, 0.04)");
           shadowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.fillStyle = shadowGrad;
           ctx.beginPath();
@@ -396,7 +418,7 @@ export default function AddProductModal({
           );
           ctx.fill();
 
-          // 4. Draw shoe
+          // 4. Draw product
           ctx.drawImage(img, drawX, drawY, drawW, drawH);
 
           canvas.toBlob(
@@ -442,7 +464,7 @@ export default function AddProductModal({
 
       if (useAI) {
         setAiProcessing(true);
-        setAiStatusText("Nano Banana AI: Enhancing shoe photo...");
+        setAiStatusText("Nano Banana AI: Enhancing product photo...");
 
         let enhancedSuccessfully = false;
 
@@ -532,16 +554,15 @@ export default function AddProductModal({
     }
   };
 
-  // Add shoe size preset with 1 click
-  const handleAddSizePreset = (sizeVal: string) => {
-    if (variants.some((v) => v.variant_value === sizeVal)) return;
+  // Add variant preset helper
+  const handleAddVariant = (optName = "Option", optVal = "") => {
     setVariants((prev) => [
       ...prev,
       {
         image_url: "",
-        variant_name: "Size",
-        variant_value: sizeVal,
-        sku: barcode ? `${barcode}-${sizeVal}` : sizeVal,
+        variant_name: optName,
+        variant_value: optVal,
+        sku: barcode && optVal ? `${barcode}-${optVal}` : "",
         price: "",
       },
     ]);
@@ -673,7 +694,7 @@ export default function AddProductModal({
           return {
             product_id: productData.id,
             image_url: v.image_url || null,
-            variant_name: v.variant_name.trim() || "Size",
+            variant_name: v.variant_name.trim() || "Option",
             variant_value: v.variant_value.trim(),
             sku: v.sku.trim() || null,
             price:
@@ -777,8 +798,8 @@ export default function AddProductModal({
   if (!isOpen) return null;
 
   const stepsList = [
-    { num: 1, label: "Shoe & Photo", icon: Package },
-    { num: 2, label: "Sizes & Options", icon: Layers },
+    { num: 1, label: "Product & Photo", icon: Package },
+    { num: 2, label: "Variants & Options", icon: Layers },
     { num: 3, label: "Cost & Pricing", icon: CircleDollarSign },
     { num: 4, label: "Stock & Review", icon: Boxes },
   ];
@@ -791,7 +812,7 @@ export default function AddProductModal({
           <div className="flex justify-between items-center px-4 sm:px-6 py-3.5 border-b border-gray-200/60">
             <div>
               <h2 className="text-base sm:text-lg font-black text-gray-900">
-                {productToEdit ? "Edit Product" : "Add New Shoe"}
+                {productToEdit ? "Edit Product" : "Add New Product"}
               </h2>
               <p className="text-xs text-gray-500 font-medium">
                 Step {currentStep} of 4: {stepsList[currentStep - 1].label}
@@ -810,7 +831,6 @@ export default function AddProductModal({
           {/* Stepper Tabs */}
           <div className="grid grid-cols-4 px-2 sm:px-4 py-2 gap-1 bg-white">
             {stepsList.map((step) => {
-              const Icon = step.icon;
               const isCurrent = currentStep === step.num;
               const isPast = currentStep > step.num;
               return (
@@ -862,14 +882,14 @@ export default function AddProductModal({
         {/* Step Body */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5">
           {/* ========================================================================= */}
-          {/* STEP 1: Shoe Info & Photo */}
+          {/* STEP 1: Product Information & Photo */}
           {/* ========================================================================= */}
           {currentStep === 1 && (
             <div className="space-y-4">
               {/* Image Upload Box with Nano Banana AI */}
               <div>
                 <label className="block text-xs font-bold uppercase text-gray-700 mb-2">
-                  Shoe Photo &amp; AI Studio Background
+                  Product Photo &amp; AI Studio Background
                 </label>
                 <label className="border-2 border-dashed border-gray-300 rounded-2xl p-4 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative overflow-hidden h-44 bg-gray-50/60">
                   <input
@@ -901,10 +921,10 @@ export default function AddProductModal({
                         <CloudUpload className="w-6 h-6" />
                       </div>
                       <p className="text-xs sm:text-sm font-bold text-gray-900">
-                        Tap or drag to upload shoe photo
+                        Tap or drag to upload product photo
                       </p>
                       <p className="text-[11px] text-gray-400 mt-0.5">
-                        JPG, PNG, WebP supported
+                        JPG, PNG, WebP supported (Max 5MB)
                       </p>
                     </div>
                   )}
@@ -956,13 +976,13 @@ export default function AddProductModal({
               {/* Product Name */}
               <div>
                 <label className="block text-xs font-bold uppercase text-gray-700 mb-1.5">
-                  Shoe Name <span className="text-red-500">*</span>
+                  Product Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Oxford Classic Leather"
+                  placeholder="e.g. Classic Watch, Cotton Shirt, Leather Wallet"
                   className="w-full min-h-[46px] px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 focus:outline-none focus:bg-white focus:border-gray-900"
                 />
               </div>
@@ -1075,13 +1095,13 @@ export default function AddProductModal({
 
                 <div>
                   <label className="block text-xs font-bold uppercase text-gray-700 mb-1.5">
-                    Brand
+                    Brand Name
                   </label>
                   <input
                     type="text"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
-                    placeholder="e.g. Rizq"
+                    placeholder="e.g. Rizq, Apple, Nike"
                     className="w-full min-h-[46px] px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:bg-white focus:border-gray-900"
                   />
                 </div>
@@ -1090,7 +1110,7 @@ export default function AddProductModal({
               {/* Product Type (Single vs Variable) */}
               <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
                 <label className="block text-xs font-bold uppercase text-gray-700 mb-2">
-                  Shoe Type
+                  Product Type
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -1102,7 +1122,7 @@ export default function AddProductModal({
                         : "border-gray-200 bg-white text-gray-700 hover:bg-gray-100"
                     }`}
                   >
-                    <span>Single Shoe</span>
+                    <span>Single Product</span>
                   </button>
                   <button
                     type="button"
@@ -1114,7 +1134,7 @@ export default function AddProductModal({
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5" />
-                    <span>Has Sizes / Variants</span>
+                    <span>Has Variants (Sizes / Colors / Models)</span>
                   </button>
                 </div>
               </div>
@@ -1122,7 +1142,7 @@ export default function AddProductModal({
           )}
 
           {/* ========================================================================= */}
-          {/* STEP 2: Sizes & Variants */}
+          {/* STEP 2: Variants & Options */}
           {/* ========================================================================= */}
           {currentStep === 2 && (
             <div className="space-y-4">
@@ -1133,10 +1153,10 @@ export default function AddProductModal({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-900">
-                      Standard Single Product
+                      Single Product Selected
                     </h3>
                     <p className="text-xs text-gray-500 max-w-sm mx-auto mt-1">
-                      This shoe does not use individual size-level pricing. You can proceed directly to Pricing.
+                      This product does not have variants (sizes, colors, or flavors). You can proceed directly to Pricing.
                     </p>
                   </div>
                   <button
@@ -1144,42 +1164,76 @@ export default function AddProductModal({
                     onClick={() => setProductType("Variable Product")}
                     className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-800 hover:bg-gray-100 transition-colors"
                   >
-                    + Switch to Sizes / Variable Product
+                    + Switch to Variable Product (Add Options)
                   </button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Quick Preset Buttons */}
-                  <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl">
-                    <div className="flex items-center justify-between mb-2">
+                  {/* Preset Suggestions */}
+                  <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-amber-900 uppercase">
-                        Quick Add Shoe Sizes:
-                      </span>
-                      <span className="text-[11px] text-amber-700">
-                        Tap to add
+                        Quick Add Options:
                       </span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {COMMON_SHOE_SIZES.map((sz) => {
-                        const exists = variants.some(
-                          (v) => v.variant_value === sz
-                        );
-                        return (
-                          <button
-                            key={sz}
-                            type="button"
-                            disabled={exists}
-                            onClick={() => handleAddSizePreset(sz)}
-                            className={`min-h-[36px] px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                              exists
-                                ? "bg-amber-200/60 text-amber-800 opacity-60 cursor-not-allowed"
-                                : "bg-white text-gray-900 border border-amber-300 hover:bg-amber-100 shadow-2xs"
-                            }`}
-                          >
-                            {exists ? `✓ ${sz}` : `+ ${sz}`}
-                          </button>
-                        );
-                      })}
+
+                    {/* Common Size & Color Presets */}
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-500 mr-1">
+                          Sizes:
+                        </span>
+                        {["S", "M", "L", "XL", "XXL", "39", "40", "41", "42", "43", "44", "45"].map(
+                          (val) => {
+                            const exists = variants.some(
+                              (v) => v.variant_value === val
+                            );
+                            return (
+                              <button
+                                key={val}
+                                type="button"
+                                disabled={exists}
+                                onClick={() => handleAddVariant("Size", val)}
+                                className={`min-h-[32px] px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all ${
+                                  exists
+                                    ? "bg-amber-200/60 text-amber-800 opacity-60 cursor-not-allowed"
+                                    : "bg-white text-gray-900 border border-amber-300 hover:bg-amber-100 shadow-2xs"
+                                }`}
+                              >
+                                {exists ? `✓ ${val}` : `+ ${val}`}
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-gray-500 mr-1">
+                          Colors:
+                        </span>
+                        {["Black", "White", "Blue", "Red", "Brown", "Grey"].map(
+                          (val) => {
+                            const exists = variants.some(
+                              (v) => v.variant_value === val
+                            );
+                            return (
+                              <button
+                                key={val}
+                                type="button"
+                                disabled={exists}
+                                onClick={() => handleAddVariant("Color", val)}
+                                className={`min-h-[32px] px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all ${
+                                  exists
+                                    ? "bg-amber-200/60 text-amber-800 opacity-60 cursor-not-allowed"
+                                    : "bg-white text-gray-900 border border-amber-300 hover:bg-amber-100 shadow-2xs"
+                                }`}
+                              >
+                                {exists ? `✓ ${val}` : `+ ${val}`}
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -1187,32 +1241,21 @@ export default function AddProductModal({
                   <div className="space-y-2.5">
                     <div className="flex justify-between items-center">
                       <label className="text-xs font-bold uppercase text-gray-700">
-                        Shoe Sizes ({variants.length})
+                        Product Variants ({variants.length})
                       </label>
                       <button
                         type="button"
-                        onClick={() =>
-                          setVariants([
-                            ...variants,
-                            {
-                              image_url: "",
-                              variant_name: "Size",
-                              variant_value: "",
-                              sku: "",
-                              price: "",
-                            },
-                          ])
-                        }
+                        onClick={() => handleAddVariant("Option", "")}
                         className="px-3 py-1.5 bg-black text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-colors flex items-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Add Custom Size</span>
+                        <span>Add Custom Option</span>
                       </button>
                     </div>
 
                     {variants.length === 0 ? (
                       <div className="py-8 text-center text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-xs font-medium">
-                        No sizes added yet. Tap quick size pills above or click &ldquo;Add Custom Size&rdquo;.
+                        No variants added yet. Tap quick pills above or click &ldquo;Add Custom Option&rdquo;.
                       </div>
                     ) : (
                       variants.map((variant, index) => (
@@ -1222,7 +1265,24 @@ export default function AddProductModal({
                         >
                           <div className="col-span-4 sm:col-span-3">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
-                              Size / Option
+                              Option Name
+                            </label>
+                            <input
+                              type="text"
+                              value={variant.variant_name}
+                              onChange={(e) => {
+                                const next = [...variants];
+                                next[index].variant_name = e.target.value;
+                                setVariants(next);
+                              }}
+                              placeholder="Size / Color"
+                              className="w-full min-h-[38px] px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-900"
+                            />
+                          </div>
+
+                          <div className="col-span-4 sm:col-span-3">
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
+                              Value
                             </label>
                             <input
                               type="text"
@@ -1232,12 +1292,12 @@ export default function AddProductModal({
                                 next[index].variant_value = e.target.value;
                                 setVariants(next);
                               }}
-                              placeholder="e.g. 42"
+                              placeholder="e.g. XL / Red"
                               className="w-full min-h-[38px] px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-900"
                             />
                           </div>
 
-                          <div className="col-span-4 sm:col-span-4">
+                          <div className="col-span-3 sm:col-span-3">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
                               Price (৳ Override)
                             </label>
@@ -1255,7 +1315,7 @@ export default function AddProductModal({
                             />
                           </div>
 
-                          <div className="col-span-3 sm:col-span-4">
+                          <div className="col-span-11 sm:col-span-2">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">
                               SKU
                             </label>
@@ -1306,7 +1366,7 @@ export default function AddProductModal({
                     Buying Currency
                   </span>
                   <span className="text-[11px] text-gray-500">
-                    Switch to Chinese Yuan (¥) if importing from China
+                    Switch to Chinese Yuan (¥) if importing products
                   </span>
                 </div>
                 <div className="flex bg-gray-200 p-0.5 rounded-xl text-xs font-bold">
@@ -1340,7 +1400,7 @@ export default function AddProductModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-xs font-bold uppercase text-gray-700 mb-1.5">
-                      Bank Rate (BDT/CNY)
+                      Bank Exchange Rate (BDT/CNY)
                     </label>
                     <input
                       type="text"
@@ -1453,7 +1513,7 @@ export default function AddProductModal({
                 <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
                   <div>
                     <span className="text-[11px] font-bold text-emerald-800 uppercase block">
-                      Expected Profit / Pair
+                      Expected Profit / Unit
                     </span>
                     <span className="text-xs text-emerald-600 font-medium">
                       Selling Price − Landed Cost
@@ -1473,7 +1533,7 @@ export default function AddProductModal({
           )}
 
           {/* ========================================================================= */}
-          {/* STEP 4: Stock & Review */}
+          {/* STEP 4: Stock, Supplier & Review */}
           {/* ========================================================================= */}
           {currentStep === 4 && (
             <div className="space-y-4">
@@ -1503,7 +1563,7 @@ export default function AddProductModal({
                     type="text"
                     value={supplierName}
                     onChange={(e) => setSupplierName(e.target.value)}
-                    placeholder="e.g. Dhaka Footwear Co."
+                    placeholder="e.g. Dhaka Wholesale Ltd."
                     className="w-full min-h-[46px] px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:bg-white focus:border-gray-900"
                   />
                 </div>
@@ -1599,7 +1659,7 @@ export default function AddProductModal({
                     type="text"
                     value={warranty}
                     onChange={(e) => setWarranty(e.target.value)}
-                    placeholder="e.g. 6 Months Sole Warranty"
+                    placeholder="e.g. 1 Year Service Warranty"
                     className="w-full min-h-[42px] px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900"
                   />
                 )}
@@ -1607,34 +1667,48 @@ export default function AddProductModal({
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional notes or material description"
+                  placeholder="Optional product description or specifications"
                   className="w-full min-h-[42px] px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900"
                 />
               </div>
 
               {/* Review Summary Card */}
               <div className="p-4 bg-gray-900 text-white rounded-2xl space-y-3">
-                <div className="flex items-center gap-3">
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={name}
-                      className="w-14 h-14 object-contain rounded-xl bg-white p-1 shrink-0"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-xl bg-gray-800 flex items-center justify-center text-gray-500 shrink-0">
-                      <Package className="w-6 h-6" />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={name}
+                        className="w-14 h-14 object-contain rounded-xl bg-white p-1 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl bg-gray-800 flex items-center justify-center text-gray-500 shrink-0">
+                        <Package className="w-6 h-6" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-black truncate">{name || "Untitled Product"}</h4>
+                      <p className="text-xs text-gray-400">
+                        {category} • {productType} {variants.length > 0 ? `(${variants.length} options)` : ""}
+                      </p>
+                      <p className="text-[11px] text-gray-400 font-mono mt-0.5">
+                        Barcode: {barcode || "Auto"}
+                      </p>
                     </div>
-                  )}
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-black truncate">{name || "Untitled Shoe"}</h4>
-                    <p className="text-xs text-gray-400">
-                      {category} • {productType} {variants.length > 0 ? `(${variants.length} sizes)` : ""}
-                    </p>
-                    <p className="text-[11px] text-gray-400 font-mono mt-0.5">
-                      Barcode: {barcode || "Auto"}
-                    </p>
                   </div>
+
+                  {barcode && (
+                    <button
+                      type="button"
+                      onClick={() => handlePrintBarcode()}
+                      className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
+                      title="Print Barcode Label"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span className="hidden sm:inline">Print Barcode</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-800 text-center">
@@ -1759,7 +1833,7 @@ export default function AddProductModal({
                   <>
                     <Check className="w-4 h-4 stroke-[3]" />
                     <span>
-                      {productToEdit ? "Save Changes" : "Complete & Save Shoe"}
+                      {productToEdit ? "Save Changes" : "Complete & Save Product"}
                     </span>
                   </>
                 )}
