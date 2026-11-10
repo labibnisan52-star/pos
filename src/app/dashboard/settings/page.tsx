@@ -15,6 +15,7 @@ import {
   Sliders,
   AlertCircle,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
@@ -42,6 +43,7 @@ export default function SettingsPage() {
     "grayscale"
   );
   const [logoSize, setLogoSize] = useState<"sm" | "md" | "lg">("md");
+  const [nanoBananaApiKey, setNanoBananaApiKey] = useState("");
 
   // UI state
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -63,6 +65,7 @@ export default function SettingsPage() {
     setShowLogoOnReceipt(s.showLogoOnReceipt !== false);
     setLogoFilter(s.logoFilter || "grayscale");
     setLogoSize(s.logoSize || "md");
+    setNanoBananaApiKey(s.nanoBananaApiKey || "");
     setPreviewPaperWidth(s.paperWidth);
   }, []);
 
@@ -178,6 +181,7 @@ export default function SettingsPage() {
       showLogoOnReceipt,
       logoFilter,
       logoSize,
+      nanoBananaApiKey: nanoBananaApiKey.trim(),
     };
 
     localStorage.setItem(
@@ -638,6 +642,39 @@ export default function SettingsPage() {
                 placeholder="Thank you for shopping at Rizq!"
                 className="w-full min-h-[46px] px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:bg-white focus:border-gray-900"
               />
+            </div>
+
+            {/* Nano Banana AI Integration */}
+            <div className="pt-4 border-t border-gray-100 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-gray-900 uppercase">
+                    Nano Banana AI Image Enhancement
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Powers automatic background removal &amp; studio lighting when adding products
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                  Nano Banana API Key (Optional)
+                </label>
+                <input
+                  type="password"
+                  value={nanoBananaApiKey}
+                  onChange={(e) => setNanoBananaApiKey(e.target.value)}
+                  placeholder="Paste your Nano Banana API key (e.g. nb_live_...)"
+                  className="w-full min-h-[44px] px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:bg-white focus:border-gray-900 font-mono"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  💡 Even without an external API key, the POS automatically uses its built-in studio AI engine to isolate shoes and create crisp pure white product photos.
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center justify-between gap-3 pt-2">

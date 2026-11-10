@@ -49,6 +49,7 @@ export interface StorePrintSettings {
   showLogoOnReceipt?: boolean;
   logoFilter?: "grayscale" | "original";
   logoSize?: "sm" | "md" | "lg";
+  nanoBananaApiKey?: string;
 }
 
 const DEFAULT_SETTINGS: StorePrintSettings = {
@@ -62,6 +63,7 @@ const DEFAULT_SETTINGS: StorePrintSettings = {
   showLogoOnReceipt: true,
   logoFilter: "grayscale",
   logoSize: "md",
+  nanoBananaApiKey: "",
 };
 
 export function loadStoreSettings(): StorePrintSettings {
@@ -84,6 +86,7 @@ export function loadStoreSettings(): StorePrintSettings {
       showLogoOnReceipt: parsed.showLogoOnReceipt !== false,
       logoFilter: parsed.logoFilter === "original" ? "original" : "grayscale",
       logoSize: parsed.logoSize || "md",
+      nanoBananaApiKey: parsed.nanoBananaApiKey || "",
     };
   } catch {
     return DEFAULT_SETTINGS;
