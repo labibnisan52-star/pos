@@ -452,11 +452,15 @@ export default function SettingsPage() {
                   {showLogoOnReceipt && logoUrl ? (
                     <div className="flex justify-center mb-2">
                       <img
-                        src={logoUrl}
+                        src={
+                          logoUrl === "/logo.png" && logoFilter === "grayscale"
+                            ? "/logo-thermal.png"
+                            : logoUrl
+                        }
                         alt="Store Logo"
                         className={`mx-auto object-contain transition-all ${
                           logoFilter === "grayscale"
-                            ? "grayscale contrast-125"
+                            ? "contrast-125"
                             : ""
                         } ${
                           previewPaperWidth === "58mm"

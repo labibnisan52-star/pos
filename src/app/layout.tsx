@@ -26,6 +26,10 @@ export const metadata: Metadata = {
   title: "Rizq POS — Footwear & Shoe Store",
   description: "Point of Sale & Inventory Management for Rizq",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

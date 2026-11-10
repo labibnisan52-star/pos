@@ -58,7 +58,7 @@ const DEFAULT_SETTINGS: StorePrintSettings = {
   shopPhone: "",
   receiptFooter: "Thank you for shopping at Rizq!",
   paperWidth: "80mm",
-  logoUrl: "",
+  logoUrl: "/logo.png",
   showLogoOnReceipt: true,
   logoFilter: "grayscale",
   logoSize: "md",
@@ -77,7 +77,10 @@ export function loadStoreSettings(): StorePrintSettings {
       shopPhone: parsed.shopPhone || "",
       receiptFooter: parsed.receiptFooter || DEFAULT_SETTINGS.receiptFooter,
       paperWidth: parsed.paperWidth === "58mm" ? "58mm" : "80mm",
-      logoUrl: parsed.logoUrl || "",
+      logoUrl:
+        parsed.logoUrl !== undefined && parsed.logoUrl !== ""
+          ? parsed.logoUrl
+          : "/logo.png",
       showLogoOnReceipt: parsed.showLogoOnReceipt !== false,
       logoFilter: parsed.logoFilter === "original" ? "original" : "grayscale",
       logoSize: parsed.logoSize || "md",
@@ -241,11 +244,16 @@ export default function ReceiptModal({
               {settings.showLogoOnReceipt && settings.logoUrl && (
                 <div className="flex justify-center mb-2">
                   <img
-                    src={settings.logoUrl}
+                    src={
+                      settings.logoUrl === "/logo.png" &&
+                      settings.logoFilter === "grayscale"
+                        ? "/logo-thermal.png"
+                        : settings.logoUrl
+                    }
                     alt={settings.shopName}
                     className={`thermal-receipt-logo mx-auto object-contain ${
                       settings.logoFilter === "grayscale"
-                        ? "grayscale contrast-125"
+                        ? "contrast-125"
                         : ""
                     } ${
                       paperWidth === "58mm"
