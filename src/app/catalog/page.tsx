@@ -61,6 +61,7 @@ export default function PublicCatalogPage() {
     shopTagline: "Footwear & Shoes",
     shopPhone: "",
     shopAddress: "",
+    logoUrl: "",
   });
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function PublicCatalogPage() {
       shopTagline: s.shopTagline || "Footwear & Shoes",
       shopPhone: s.shopPhone || "",
       shopAddress: s.shopAddress || "",
+      logoUrl: s.logoUrl || "",
     });
   }, []);
 
@@ -185,20 +187,29 @@ export default function PublicCatalogPage() {
       {/* Top Banner & Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900">
-                {storeSettings.shopName}
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f3f0ea] text-gray-700">
-                Catalog
-              </span>
-            </div>
-            {storeSettings.shopTagline && (
-              <p className="text-xs text-gray-500 font-medium">
-                {storeSettings.shopTagline}
-              </p>
+          <div className="flex items-center gap-3">
+            {storeSettings.logoUrl && (
+              <img
+                src={storeSettings.logoUrl}
+                alt={storeSettings.shopName}
+                className="w-10 h-10 object-contain rounded-xl border border-gray-200/80 p-0.5 bg-white shrink-0 shadow-2xs"
+              />
             )}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900">
+                  {storeSettings.shopName}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f3f0ea] text-gray-700">
+                  Catalog
+                </span>
+              </div>
+              {storeSettings.shopTagline && (
+                <p className="text-xs text-gray-500 font-medium">
+                  {storeSettings.shopTagline}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

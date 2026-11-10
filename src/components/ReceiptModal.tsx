@@ -38,13 +38,17 @@ export interface ReceiptOrderData {
   isOfflineQueued?: boolean;
 }
 
-interface StorePrintSettings {
+export interface StorePrintSettings {
   shopName: string;
   shopTagline: string;
   shopAddress: string;
   shopPhone: string;
   receiptFooter: string;
   paperWidth: "80mm" | "58mm";
+  logoUrl?: string;
+  showLogoOnReceipt?: boolean;
+  logoFilter?: "grayscale" | "original";
+  logoSize?: "sm" | "md" | "lg";
 }
 
 const DEFAULT_SETTINGS: StorePrintSettings = {
@@ -54,6 +58,10 @@ const DEFAULT_SETTINGS: StorePrintSettings = {
   shopPhone: "",
   receiptFooter: "Thank you for shopping at Rizq!",
   paperWidth: "80mm",
+  logoUrl: "",
+  showLogoOnReceipt: true,
+  logoFilter: "grayscale",
+  logoSize: "md",
 };
 
 export function loadStoreSettings(): StorePrintSettings {
@@ -69,6 +77,10 @@ export function loadStoreSettings(): StorePrintSettings {
       shopPhone: parsed.shopPhone || "",
       receiptFooter: parsed.receiptFooter || DEFAULT_SETTINGS.receiptFooter,
       paperWidth: parsed.paperWidth === "58mm" ? "58mm" : "80mm",
+      logoUrl: parsed.logoUrl || "",
+      showLogoOnReceipt: parsed.showLogoOnReceipt !== false,
+      logoFilter: parsed.logoFilter === "original" ? "original" : "grayscale",
+      logoSize: parsed.logoSize || "md",
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -131,6 +143,17 @@ export default function ReceiptModal({
           border: none !important;
           border-radius: 0 !important;
           font-size: ${paperWidth === "58mm" ? "10px" : "11.5px"} !important;
+        }
+        .thermal-receipt-logo {
+          display: block !important;
+          margin: 0 auto 2mm auto !important;
+          max-width: ${paperWidth === "58mm" ? (settings.logoSize === "sm" ? "30mm" : settings.logoSize === "lg" ? "46mm" : "38mm") : (settings.logoSize === "sm" ? "40mm" : settings.logoSize === "lg" ? "60mm" : "50mm")} !important;
+          max-height: ${paperWidth === "58mm" ? "22mm" : "28mm"} !important;
+          height: auto !important;
+          object-fit: contain !important;
+          filter: ${settings.logoFilter === "grayscale" ? "grayscale(100%) contrast(160%)" : "none"} !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
       }
     `,
@@ -215,6 +238,31 @@ export default function ReceiptModal({
           >
             {/* Shop Header */}
             <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
+              {settings.showLogoOnReceipt && settings.logoUrl && (
+                <div className="flex justify-center mb-2">
+                  <img
+                    src={settings.logoUrl}
+                    alt={settings.shopName}
+                    className={`thermal-receipt-logo mx-auto object-contain ${
+                      settings.logoFilter === "grayscale"
+                        ? "grayscale contrast-125"
+                        : ""
+                    } ${
+                      paperWidth === "58mm"
+                        ? settings.logoSize === "sm"
+                          ? "max-w-[100px] max-h-[42px]"
+                          : settings.logoSize === "lg"
+                          ? "max-w-[155px] max-h-[60px]"
+                          : "max-w-[125px] max-h-[50px]"
+                        : settings.logoSize === "sm"
+                        ? "max-w-[130px] max-h-[50px]"
+                        : settings.logoSize === "lg"
+                        ? "max-w-[195px] max-h-[75px]"
+                        : "max-w-[160px] max-h-[62px]"
+                    }`}
+                  />
+                </div>
+              )}
               <h3 className="text-xl font-black tracking-wider uppercase text-black">
                 {settings.shopName}
               </h3>

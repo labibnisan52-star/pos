@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
+import { loadStoreSettings } from "@/components/ReceiptModal";
 
 export default function DashboardLayout({
   children,
@@ -31,8 +32,17 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [shopLogo, setShopLogo] = useState("");
+  const [shopName, setShopName] = useState("RIZQ");
   const supabase = createClient();
   const { user, role, loading } = useAuth();
+
+  // Load store settings (including logo)
+  useEffect(() => {
+    const s = loadStoreSettings();
+    if (s.logoUrl) setShopLogo(s.logoUrl);
+    if (s.shopName) setShopName(s.shopName);
+  }, [pathname]);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -140,13 +150,22 @@ export default function DashboardLayout({
           <aside className="relative w-72 max-w-[84vw] bg-white h-full shadow-2xl flex flex-col justify-between z-10 overflow-y-auto">
             <div>
               <div className="h-16 px-4 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <span className="text-lg font-black tracking-tight text-gray-900">
-                    RIZQ POS
-                  </span>
-                  <p className="text-[11px] text-gray-500">
-                    Shoe Store Management
-                  </p>
+                <div className="flex items-center gap-2.5">
+                  {shopLogo && (
+                    <img
+                      src={shopLogo}
+                      alt={shopName}
+                      className="w-8 h-8 object-contain rounded-lg border border-gray-100 p-0.5 bg-white shrink-0"
+                    />
+                  )}
+                  <div>
+                    <span className="text-lg font-black tracking-tight text-gray-900">
+                      {shopName} POS
+                    </span>
+                    <p className="text-[11px] text-gray-500">
+                      Shoe Store Management
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -229,16 +248,31 @@ export default function DashboardLayout({
       >
         <div className="overflow-y-auto no-scrollbar">
           {/* Logo */}
-          <div className="h-16 flex items-center px-5 border-b border-gray-100">
+          <div className="h-16 flex items-center px-4 border-b border-gray-100">
             {isExpanded ? (
-              <div className="flex flex-col">
-                <span className="text-xl font-black tracking-tight text-gray-900">
-                  RIZQ
-                </span>
-                <span className="text-[11px] font-medium text-gray-400">
-                  Shoe POS
-                </span>
+              <div className="flex items-center gap-2.5 min-w-0">
+                {shopLogo && (
+                  <img
+                    src={shopLogo}
+                    alt={shopName}
+                    className="w-8 h-8 object-contain rounded-lg border border-gray-100 p-0.5 bg-white shrink-0 shadow-2xs"
+                  />
+                )}
+                <div className="flex flex-col min-w-0">
+                  <span className="text-lg font-black tracking-tight text-gray-900 truncate">
+                    {shopName}
+                  </span>
+                  <span className="text-[11px] font-medium text-gray-400">
+                    Shoe POS
+                  </span>
+                </div>
               </div>
+            ) : shopLogo ? (
+              <img
+                src={shopLogo}
+                alt={shopName}
+                className="w-8 h-8 object-contain rounded-lg border border-gray-100 p-0.5 bg-white mx-auto shrink-0 shadow-2xs"
+              />
             ) : (
               <span className="text-xl font-black tracking-tight text-gray-900 mx-auto">
                 RZ
