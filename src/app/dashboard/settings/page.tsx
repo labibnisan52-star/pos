@@ -14,8 +14,11 @@ import {
   Eye,
   Sliders,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Sparkles,
+  Copy,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
@@ -52,6 +55,66 @@ export default function SettingsPage() {
   const [previewPaperWidth, setPreviewPaperWidth] = useState<"80mm" | "58mm">(
     "58mm"
   );
+
+  // Reset Sales / Start from Zero state
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetKeyword, setResetKeyword] = useState("");
+  const [resetExpensesOption, setResetExpensesOption] = useState(true);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const resetSqlScript = `-- Run this in Supabase SQL Editor:
+DELETE FROM public.returns;
+DELETE FROM public.sales_returns;
+DELETE FROM public.payments;
+DELETE FROM public.order_items;
+DELETE FROM public.orders;
+DELETE FROM public.expenses;`;
+
+  const handleResetSales = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (resetKeyword.trim() !== "RESET") {
+      setResetError("Please type 'RESET' exactly to confirm.");
+      return;
+    }
+
+    setResetLoading(true);
+    setResetError("");
+
+    try {
+      const res = await fetch("/api/admin/reset-sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirmation: "RESET",
+          resetExpenses: resetExpensesOption,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to reset store sales.");
+      }
+
+      setResetSuccess(data.message || "Store reset successfully!");
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Reset failed.";
+      setResetError(msg);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(resetSqlScript);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
 
   useEffect(() => {
     const s = loadStoreSettings();
@@ -695,6 +758,36 @@ export default function SettingsPage() {
           </div>
         </form>
 
+        {/* Danger Zone: Reset Store Data */}
+        <div className="bg-white rounded-2xl border-2 border-red-100 p-5 sm:p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-bold text-gray-900">
+                Danger Zone: Start Everything From Zero
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Clear all previous sales orders, customer dues, payment transactions, and historical profits. Your product catalog, categories, stock, and settings will remain safe.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setResetKeyword("");
+                setResetError("");
+                setResetSuccess("");
+                setIsResetModalOpen(true);
+              }}
+              className="min-h-[42px] px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Reset Sales to Zero</span>
+            </button>
+          </div>
+        </div>
+
         {/* Account Card */}
         <div className="bg-white rounded-2xl border border-gray-200/80 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -721,6 +814,155 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* Reset Confirmation Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xs">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-4 bg-red-50/80 border-b border-red-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-red-950">
+                    Reset Sales, Dues &amp; Profit to Zero
+                  </h3>
+                  <p className="text-xs text-red-700 font-medium">
+                    Permanent action: starts your financial data fresh
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-700 rounded-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleResetSales} className="p-6 space-y-4">
+              {resetError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              {resetSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-2">
+                  <Check className="w-4 h-4" />
+                  <span>{resetSuccess}</span>
+                </div>
+              )}
+
+              {/* Scope Checklist */}
+              <div className="space-y-2 text-xs">
+                <div className="p-3 bg-red-50/50 border border-red-100 rounded-xl space-y-1">
+                  <span className="font-bold text-red-900 block">
+                    What will be deleted (Reset to 0):
+                  </span>
+                  <ul className="list-disc pl-4 text-red-700 space-y-0.5">
+                    <li>All sales orders &amp; order line items</li>
+                    <li>All customer outstanding dues &amp; credit balances</li>
+                    <li>All payment transactions &amp; receipt histories</li>
+                    <li>All sales returns &amp; refund records</li>
+                  </ul>
+                </div>
+
+                <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl space-y-1">
+                  <span className="font-bold text-emerald-900 block">
+                    What will NOT be deleted (Safe):
+                  </span>
+                  <ul className="list-disc pl-4 text-emerald-700 space-y-0.5">
+                    <li>Your entire product catalog &amp; variants</li>
+                    <li>Product categories, units &amp; barcodes</li>
+                    <li>Store name, logo &amp; receipt settings</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Expense Option */}
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={resetExpensesOption}
+                  onChange={(e) => setResetExpensesOption(e.target.checked)}
+                  className="rounded border-gray-300 text-black focus:ring-black"
+                />
+                <span>Also reset expenses so Net Profit starts at exactly ৳0</span>
+              </label>
+
+              {/* Type RESET to Confirm */}
+              <div className="space-y-1.5 pt-2">
+                <label className="block text-xs font-bold uppercase text-gray-700">
+                  Type <span className="font-mono text-red-600 font-black">RESET</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={resetKeyword}
+                  onChange={(e) => {
+                    setResetKeyword(e.target.value);
+                    setResetError("");
+                  }}
+                  placeholder="RESET"
+                  required
+                  autoFocus
+                  className="w-full min-h-[46px] px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-red-600 font-mono tracking-wider"
+                />
+              </div>
+
+              {/* Supabase SQL Alternative Helper */}
+              <div className="pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    Or run SQL directly in Supabase:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopySql}
+                    className="text-[11px] font-bold text-gray-700 hover:text-black flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>{copiedSql ? "Copied SQL!" : "Copy SQL Script"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(false)}
+                  disabled={resetLoading}
+                  className="min-h-[44px] px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading || resetKeyword.trim() !== "RESET"}
+                  className="min-h-[44px] px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {resetLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Resetting Store...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Permanently Reset Store to Zero</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
