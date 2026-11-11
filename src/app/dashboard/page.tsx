@@ -409,19 +409,28 @@ export default function DashboardPage() {
         </div>
 
         {/* Outstanding Dues */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200/80 flex flex-col justify-between">
+        <Link
+          href="/dashboard/dues"
+          className="bg-white p-5 rounded-2xl border border-gray-200/80 flex flex-col justify-between hover:border-amber-300 hover:shadow-xs transition-all group"
+        >
           <div className="flex justify-between items-start mb-3">
-            <span className="text-gray-600 text-sm font-semibold">
+            <span className="text-gray-600 text-sm font-semibold group-hover:text-amber-800 transition-colors">
               Outstanding Dues
             </span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-100">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-100 group-hover:bg-amber-100 transition-colors">
               <Contact className="w-4 h-4 text-amber-600" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-gray-900">
-            ৳{formatBDT(outstandingDues)}
+          <div>
+            <div className="text-2xl sm:text-3xl font-black text-amber-700">
+              ৳{formatBDT(outstandingDues)}
+            </div>
+            <span className="text-[11px] font-bold text-amber-800 group-hover:underline flex items-center gap-1 mt-1">
+              <span>View &amp; Collect Dues</span>
+              <ChevronRight className="w-3 h-3" />
+            </span>
           </div>
-        </div>
+        </Link>
 
         {/* Net Profit */}
         <div className="bg-white p-5 rounded-2xl border border-gray-200/80 flex flex-col justify-between">

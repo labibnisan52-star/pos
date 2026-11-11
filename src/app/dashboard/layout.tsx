@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   Globe,
+  Coins,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
@@ -62,6 +63,7 @@ export default function DashboardLayout({
     { name: "Purchases", href: "/dashboard/purchases", icon: ShoppingCart },
     { name: "Investors", href: "/dashboard/investors", icon: Briefcase },
     { name: "Customers", href: "/dashboard/customers", icon: Users },
+    { name: "Dues", href: "/dashboard/dues", icon: Coins },
     { name: "History", href: "/dashboard/history", icon: History },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart2 },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
@@ -81,6 +83,7 @@ export default function DashboardLayout({
             "POS",
             "Returns",
             "Customers",
+            "Dues",
             "History",
             "Settings",
             "Public Catalog",

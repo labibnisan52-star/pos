@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Search,
   Plus,
@@ -16,6 +17,7 @@ import {
   Calendar,
   X,
   RefreshCw,
+  Coins,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { formatBDT, roundMoney } from "@/lib/calculations";
@@ -408,17 +410,23 @@ export default function CustomersPage() {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-200/80">
+        <Link
+          href="/dashboard/dues"
+          className="bg-white p-5 rounded-2xl border border-gray-200/80 hover:border-amber-300 hover:shadow-2xs transition-all group block"
+        >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-amber-800 transition-colors">
               Total Credit Dues
             </span>
-            <UserPlus className="w-4 h-4 text-amber-600" />
+            <Coins className="w-4 h-4 text-amber-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-amber-700">
             {loading ? "—" : `৳${formatBDT(totalOutstandingDue)}`}
           </div>
-        </div>
+          <span className="text-[11px] font-bold text-amber-800 group-hover:underline flex items-center gap-0.5 mt-1">
+            Manage Dues →
+          </span>
+        </Link>
 
         <div className="bg-white p-5 rounded-2xl border border-gray-200/80">
           <div className="flex items-center justify-between mb-2">

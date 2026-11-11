@@ -18,9 +18,14 @@ import {
   ChevronRight,
   ArrowUpDown,
   Star,
+  Coins,
+  Receipt,
+  Printer,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { formatBDT, roundMoney } from "@/lib/calculations";
+import CollectDueModal, { CollectDueOrder } from "@/components/CollectDueModal";
+import ReceiptModal, { ReceiptOrderData } from "@/components/ReceiptModal";
 
 const AVATAR_COLORS = [
   "bg-amber-100 text-amber-800",
@@ -73,8 +78,14 @@ type Order = {
   id: string;
   created_at: string;
   subtotal?: number;
+  discount_type?: string;
+  discount_value?: number;
+  discount_amount?: number;
   grand_total?: number;
   total_amount: number;
+  amount_received?: number;
+  paid_amount?: number;
+  change?: number;
   due_amount?: number;
   payment_status?: string;
   payment_method: string;
@@ -105,6 +116,63 @@ export default function CustomerDetailPage() {
   >("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
+
+  // Dues & Receipt Modals
+  const [selectedOrderForDue, setSelectedOrderForDue] =
+    useState<CollectDueOrder | null>(null);
+  const [isCollectModalOpen, setIsCollectModalOpen] = useState(false);
+  const [receiptOrder, setReceiptOrder] = useState<ReceiptOrderData | null>(
+    null
+  );
+
+  const handleOpenCollectDue = (order: Order) => {
+    setSelectedOrderForDue({
+      id: order.id,
+      created_at: order.created_at,
+      customer_name: customerName,
+      customer_mobile: mobile !== "—" ? mobile : "",
+      grand_total: getOrderTotal(order),
+      paid_amount: Number(order.paid_amount) || 0,
+      due_amount: Number(order.due_amount) || 0,
+      payment_method: order.payment_method,
+      payment_status: order.payment_status,
+    });
+    setIsCollectModalOpen(true);
+  };
+
+  const handleOpenReceipt = async (order: Order) => {
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", order.id);
+
+    const formattedItems = (items || []).map((it: any) => ({
+      name: it.product_name || it.name || "Product Item",
+      variant_label: it.variant_label || null,
+      quantity: Number(it.quantity) || 1,
+      unit_price: Number(it.unit_selling_price || it.unit_price) || 0,
+      line_total: Number(it.line_total || it.total_price) || 0,
+    }));
+
+    setReceiptOrder({
+      id: order.id,
+      created_at: order.created_at,
+      customer_name: customerName,
+      customer_mobile: mobile !== "—" ? mobile : "",
+      payment_method: order.payment_method || "Cash",
+      subtotal: Number(order.subtotal) || 0,
+      discount_type: (order as any).discount_type || "fixed",
+      discount_value: Number((order as any).discount_value) || 0,
+      discount_amount: Number((order as any).discount_amount) || 0,
+      grand_total: getOrderTotal(order),
+      amount_received: Number(order.amount_received) || 0,
+      paid_amount: Number(order.paid_amount || order.amount_received) || 0,
+      change: Number(order.change) || 0,
+      due_amount: Number(order.due_amount) || 0,
+      payment_status: (order.payment_status as any) || "Paid",
+      items: formattedItems,
+    });
+  };
 
   const fetchCustomerDetails = useCallback(async () => {
     setLoading(true);
@@ -290,12 +358,29 @@ export default function CustomerDetailPage() {
               </span>
               <Clock className="w-4 h-4 text-amber-600" />
             </div>
-            <div
-              className={`text-2xl sm:text-3xl font-black ${
-                totalDue > 0 ? "text-amber-700" : "text-gray-900"
-              }`}
-            >
-              {loading ? "—" : `৳${formatBDT(totalDue)}`}
+            <div>
+              <div
+                className={`text-2xl sm:text-3xl font-black ${
+                  totalDue > 0 ? "text-amber-700" : "text-gray-900"
+                }`}
+              >
+                {loading ? "—" : `৳${formatBDT(totalDue)}`}
+              </div>
+              {totalDue > 0 && !loading && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const dueOrder = orders.find(
+                      (o) => (Number(o.due_amount) || 0) > 0
+                    );
+                    if (dueOrder) handleOpenCollectDue(dueOrder);
+                  }}
+                  className="mt-2 min-h-[36px] w-full px-3 py-1.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                >
+                  <Coins className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Collect Due Payment</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -379,7 +464,7 @@ export default function CustomerDetailPage() {
                 const total = getOrderTotal(order);
                 const due = Number(order.due_amount) || 0;
                 return (
-                  <div key={order.id} className="p-4 space-y-1.5">
+                  <div key={order.id} className="p-4 space-y-2">
                     <div className="flex justify-between items-start">
                       <div>
                         <span className="text-xs font-bold font-mono text-gray-800">
@@ -401,6 +486,26 @@ export default function CustomerDetailPage() {
                         )}
                       </div>
                     </div>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-50">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReceipt(order)}
+                        className="min-h-[36px] px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        <span>Receipt</span>
+                      </button>
+                      {due > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCollectDue(order)}
+                          className="min-h-[36px] px-3.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                        >
+                          <Coins className="w-3.5 h-3.5 text-amber-300" />
+                          <span>Collect Due</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -418,12 +523,15 @@ export default function CustomerDetailPage() {
                       "Due",
                       "Payment",
                       "Status",
+                      "Action",
                     ].map((h) => (
                       <th
                         key={h}
                         className={`px-6 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap ${
                           h === "Grand Total" || h === "Items" || h === "Due"
                             ? "text-right"
+                            : h === "Action"
+                            ? "text-center"
                             : "text-left"
                         }`}
                       >
@@ -480,6 +588,29 @@ export default function CustomerDetailPage() {
                             </span>
                           )}
                         </td>
+                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {due > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCollectDue(order)}
+                                className="min-h-[34px] px-3 py-1 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-all"
+                              >
+                                <Coins className="w-3.5 h-3.5 text-amber-300" />
+                                <span>Pay Due</span>
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenReceipt(order)}
+                              className="min-h-[34px] px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                              title="View & Print Receipt"
+                            >
+                              <Receipt className="w-3.5 h-3.5" />
+                              <span className="hidden lg:inline">Receipt</span>
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -523,6 +654,29 @@ export default function CustomerDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Collect Due Modal */}
+      <CollectDueModal
+        isOpen={isCollectModalOpen}
+        onClose={() => {
+          setIsCollectModalOpen(false);
+          setSelectedOrderForDue(null);
+        }}
+        order={selectedOrderForDue}
+        onSuccess={(updatedOrder) => {
+          fetchCustomerDetails();
+          // Prompt receipt
+          setReceiptOrder(updatedOrder);
+        }}
+      />
+
+      {/* Receipt Modal */}
+      <ReceiptModal
+        order={receiptOrder}
+        onClose={() => setReceiptOrder(null)}
+        title="Payment Receipt"
+        primaryActionLabel="Print Receipt"
+      />
     </div>
   );
 }

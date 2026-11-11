@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   RefreshCw,
   Printer,
+  Coins,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -30,6 +31,7 @@ import {
   roundMoney,
 } from "@/lib/calculations";
 import ReceiptModal, { ReceiptOrderData } from "@/components/ReceiptModal";
+import CollectDueModal, { CollectDueOrder } from "@/components/CollectDueModal";
 
 type SaleOrder = {
   id: string;
@@ -200,6 +202,26 @@ export default function HistoryPage() {
     null
   );
   const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
+
+  // Collect Due Modal State
+  const [selectedOrderForDue, setSelectedOrderForDue] =
+    useState<CollectDueOrder | null>(null);
+  const [isCollectDueOpen, setIsCollectDueOpen] = useState(false);
+
+  const handleOpenCollectDue = (order: SaleOrder) => {
+    setSelectedOrderForDue({
+      id: order.id,
+      created_at: order.created_at,
+      customer_name: order.customer_name,
+      customer_mobile: order.customer_mobile,
+      grand_total: getOrderTotal(order),
+      paid_amount: Number(order.paid_amount || order.amount_received) || 0,
+      due_amount: Number(order.due_amount) || 0,
+      payment_method: order.payment_method,
+      payment_status: order.payment_status,
+    });
+    setIsCollectDueOpen(true);
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -933,19 +955,31 @@ export default function HistoryPage() {
                           </span>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenReceipt(order)}
-                          disabled={loadingReceiptId === order.id}
-                          className="min-h-[40px] px-3 py-1.5 rounded-xl bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 flex items-center gap-1.5"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>
-                            {loadingReceiptId === order.id
-                              ? "Loading..."
-                              : "Receipt"}
-                          </span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {due > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCollectDue(order)}
+                              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-black hover:bg-gray-800 text-xs font-bold text-white flex items-center gap-1.5 shadow-2xs transition-colors"
+                            >
+                              <Coins className="w-3.5 h-3.5 text-amber-300" />
+                              <span>Collect Due</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReceipt(order)}
+                            disabled={loadingReceiptId === order.id}
+                            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 flex items-center gap-1.5"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>
+                              {loadingReceiptId === order.id
+                                ? "Loading..."
+                                : "Receipt"}
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1035,15 +1069,28 @@ export default function HistoryPage() {
                             />
                           </td>
                           <td className="px-4 py-3.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenReceipt(order)}
-                              disabled={loadingReceiptId === order.id}
-                              className="min-h-[36px] px-3 py-1.5 rounded-lg bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 flex items-center gap-1.5"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                              <span>Receipt</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              {due > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCollectDue(order)}
+                                  className="min-h-[36px] px-2.5 py-1.5 rounded-lg bg-black hover:bg-gray-800 text-xs font-bold text-white flex items-center gap-1 shadow-2xs transition-colors whitespace-nowrap"
+                                  title="Collect Due Payment"
+                                >
+                                  <Coins className="w-3.5 h-3.5 text-amber-300" />
+                                  <span>Collect Due</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReceipt(order)}
+                                disabled={loadingReceiptId === order.id}
+                                className="min-h-[36px] px-3 py-1.5 rounded-lg bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 flex items-center gap-1.5 whitespace-nowrap"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                                <span>Receipt</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1306,6 +1353,20 @@ export default function HistoryPage() {
         onClose={() => setReceiptOrder(null)}
         title="Order Receipt"
         primaryActionLabel="Done"
+      />
+
+      {/* Collect Due Modal */}
+      <CollectDueModal
+        isOpen={isCollectDueOpen}
+        onClose={() => {
+          setIsCollectDueOpen(false);
+          setSelectedOrderForDue(null);
+        }}
+        order={selectedOrderForDue}
+        onSuccess={(updatedOrder) => {
+          fetchData();
+          setReceiptOrder(updatedOrder);
+        }}
       />
     </div>
   );
