@@ -120,12 +120,16 @@ export default function CustomerDetailPage() {
   // Dues & Receipt Modals
   const [selectedOrderForDue, setSelectedOrderForDue] =
     useState<CollectDueOrder | null>(null);
+  const [collectMode, setCollectMode] = useState<"partial" | "full">("partial");
   const [isCollectModalOpen, setIsCollectModalOpen] = useState(false);
   const [receiptOrder, setReceiptOrder] = useState<ReceiptOrderData | null>(
     null
   );
 
-  const handleOpenCollectDue = (order: Order) => {
+  const handleOpenCollectDue = (
+    order: Order,
+    mode: "partial" | "full" = "partial"
+  ) => {
     setSelectedOrderForDue({
       id: order.id,
       created_at: order.created_at,
@@ -137,6 +141,7 @@ export default function CustomerDetailPage() {
       payment_method: order.payment_method,
       payment_status: order.payment_status,
     });
+    setCollectMode(mode);
     setIsCollectModalOpen(true);
   };
 
@@ -367,19 +372,34 @@ export default function CustomerDetailPage() {
                 {loading ? "—" : `৳${formatBDT(totalDue)}`}
               </div>
               {totalDue > 0 && !loading && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const dueOrder = orders.find(
-                      (o) => (Number(o.due_amount) || 0) > 0
-                    );
-                    if (dueOrder) handleOpenCollectDue(dueOrder);
-                  }}
-                  className="mt-2 min-h-[36px] w-full px-3 py-1.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
-                >
-                  <Coins className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Collect Due Payment</span>
-                </button>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dueOrder = orders.find(
+                        (o) => (Number(o.due_amount) || 0) > 0
+                      );
+                      if (dueOrder) handleOpenCollectDue(dueOrder, "partial");
+                    }}
+                    className="min-h-[36px] flex-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Pay Partial</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dueOrder = orders.find(
+                        (o) => (Number(o.due_amount) || 0) > 0
+                      );
+                      if (dueOrder) handleOpenCollectDue(dueOrder, "full");
+                    }}
+                    className="min-h-[36px] flex-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Settle Full</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -496,14 +516,24 @@ export default function CustomerDetailPage() {
                         <span>Receipt</span>
                       </button>
                       {due > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCollectDue(order)}
-                          className="min-h-[36px] px-3.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
-                        >
-                          <Coins className="w-3.5 h-3.5 text-amber-300" />
-                          <span>Collect Due</span>
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCollectDue(order, "partial")}
+                            className="min-h-[36px] px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Pay Partial</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCollectDue(order, "full")}
+                            className="min-h-[36px] px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Settle Full</span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -591,14 +621,26 @@ export default function CustomerDetailPage() {
                         <td className="px-6 py-4 text-center whitespace-nowrap">
                           <div className="flex items-center justify-center gap-1.5">
                             {due > 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenCollectDue(order)}
-                                className="min-h-[34px] px-3 py-1 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-all"
-                              >
-                                <Coins className="w-3.5 h-3.5 text-amber-300" />
-                                <span>Pay Due</span>
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCollectDue(order, "partial")}
+                                  className="min-h-[34px] px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-all"
+                                  title="Pay Partial Due"
+                                >
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>Pay Partial</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCollectDue(order, "full")}
+                                  className="min-h-[34px] px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-all"
+                                  title="Settle Full Due"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Settle Full</span>
+                                </button>
+                              </>
                             ) : null}
                             <button
                               type="button"
@@ -663,6 +705,7 @@ export default function CustomerDetailPage() {
           setSelectedOrderForDue(null);
         }}
         order={selectedOrderForDue}
+        initialMode={collectMode}
         onSuccess={(updatedOrder) => {
           fetchCustomerDetails();
           // Prompt receipt

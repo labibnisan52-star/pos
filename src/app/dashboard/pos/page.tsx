@@ -532,15 +532,35 @@ function SaleCartPanel({
                 Amount Received (৳)
               </label>
               {totals.grandTotal > 0 && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAmountReceivedInput(totals.grandTotal.toFixed(2))
-                  }
-                  className="min-h-[32px] px-2.5 py-1 rounded-lg bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 transition-colors"
-                >
-                  Exact ৳{formatBDT(totals.grandTotal)}
-                </button>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAmountReceivedInput(totals.grandTotal.toFixed(2))
+                    }
+                    className="min-h-[32px] px-2.5 py-1 rounded-lg bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 transition-colors"
+                  >
+                    Exact ৳{formatBDT(totals.grandTotal)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAmountReceivedInput(
+                        (Math.round((totals.grandTotal / 2) * 100) / 100).toFixed(2)
+                      )
+                    }
+                    className="min-h-[32px] px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-xs font-bold text-amber-900 transition-colors"
+                  >
+                    50% Partial Due
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAmountReceivedInput("0")}
+                    className="min-h-[32px] px-2 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-xs font-bold text-red-900 transition-colors"
+                  >
+                    Full Due (৳0)
+                  </button>
+                </div>
               )}
             </div>
 

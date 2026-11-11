@@ -206,9 +206,13 @@ export default function HistoryPage() {
   // Collect Due Modal State
   const [selectedOrderForDue, setSelectedOrderForDue] =
     useState<CollectDueOrder | null>(null);
+  const [collectMode, setCollectMode] = useState<"partial" | "full">("partial");
   const [isCollectDueOpen, setIsCollectDueOpen] = useState(false);
 
-  const handleOpenCollectDue = (order: SaleOrder) => {
+  const handleOpenCollectDue = (
+    order: SaleOrder,
+    mode: "partial" | "full" = "partial"
+  ) => {
     setSelectedOrderForDue({
       id: order.id,
       created_at: order.created_at,
@@ -220,6 +224,7 @@ export default function HistoryPage() {
       payment_method: order.payment_method,
       payment_status: order.payment_status,
     });
+    setCollectMode(mode);
     setIsCollectDueOpen(true);
   };
 
@@ -957,20 +962,30 @@ export default function HistoryPage() {
 
                         <div className="flex items-center gap-2">
                           {due > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenCollectDue(order)}
-                              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-black hover:bg-gray-800 text-xs font-bold text-white flex items-center gap-1.5 shadow-2xs transition-colors"
-                            >
-                              <Coins className="w-3.5 h-3.5 text-amber-300" />
-                              <span>Collect Due</span>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCollectDue(order, "partial")}
+                                className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-xs font-bold text-white flex items-center gap-1 shadow-2xs transition-colors"
+                              >
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>Pay Partial</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCollectDue(order, "full")}
+                                className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white flex items-center gap-1 shadow-2xs transition-colors"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Settle Full</span>
+                              </button>
+                            </div>
                           )}
                           <button
                             type="button"
                             onClick={() => handleOpenReceipt(order)}
                             disabled={loadingReceiptId === order.id}
-                            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 flex items-center gap-1.5"
+                            className="min-h-[38px] px-3 py-1.5 rounded-xl bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 flex items-center gap-1.5"
                           >
                             <Printer className="w-3.5 h-3.5" />
                             <span>
@@ -1071,21 +1086,32 @@ export default function HistoryPage() {
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-1.5">
                               {due > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenCollectDue(order)}
-                                  className="min-h-[36px] px-2.5 py-1.5 rounded-lg bg-black hover:bg-gray-800 text-xs font-bold text-white flex items-center gap-1 shadow-2xs transition-colors whitespace-nowrap"
-                                  title="Collect Due Payment"
-                                >
-                                  <Coins className="w-3.5 h-3.5 text-amber-300" />
-                                  <span>Collect Due</span>
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenCollectDue(order, "partial")}
+                                    className="min-h-[34px] px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-xs font-bold text-white flex items-center gap-1 shadow-2xs transition-colors whitespace-nowrap"
+                                    title="Pay Partial Due"
+                                  >
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>Pay Partial</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenCollectDue(order, "full")}
+                                    className="min-h-[34px] px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white flex items-center gap-1 shadow-2xs transition-colors whitespace-nowrap"
+                                    title="Settle Full Due"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Settle Full</span>
+                                  </button>
+                                </>
                               )}
                               <button
                                 type="button"
                                 onClick={() => handleOpenReceipt(order)}
                                 disabled={loadingReceiptId === order.id}
-                                className="min-h-[36px] px-3 py-1.5 rounded-lg bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 flex items-center gap-1.5 whitespace-nowrap"
+                                className="min-h-[34px] px-3 py-1.5 rounded-lg bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 flex items-center gap-1.5 whitespace-nowrap"
                               >
                                 <Printer className="w-3.5 h-3.5" />
                                 <span>Receipt</span>
@@ -1363,6 +1389,7 @@ export default function HistoryPage() {
           setSelectedOrderForDue(null);
         }}
         order={selectedOrderForDue}
+        initialMode={collectMode}
         onSuccess={(updatedOrder) => {
           fetchData();
           setReceiptOrder(updatedOrder);

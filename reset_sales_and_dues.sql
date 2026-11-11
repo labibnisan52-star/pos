@@ -27,3 +27,4 @@ SELECT
   (SELECT COUNT(*) FROM public.payments) AS remaining_payments,
   (SELECT COUNT(*) FROM public.sales_returns) AS remaining_returns,
   (SELECT COUNT(*) FROM public.expenses) AS remaining_expenses;
+
