@@ -14,6 +14,7 @@ import {
   Share2,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AddProductModal from "@/components/AddProductModal";
 import NiimbotLabelPrint from "@/components/NiimbotLabelPrint";
@@ -284,12 +285,12 @@ export default function InventoryPage() {
                 return (
                   <div
                     key={product.id}
-                    onClick={() =>
-                      router.push(`/dashboard/products/${product.id}`)
-                    }
-                    className="p-4 space-y-3 active:bg-gray-50 cursor-pointer"
+                    className="p-4 space-y-3"
                   >
-                    <div className="flex items-start gap-3">
+                    <Link
+                      href={`/dashboard/products/${product.id}`}
+                      className="flex items-start gap-3 active:bg-gray-50 rounded-xl -m-1 p-1 transition-colors"
+                    >
                       <div
                         className={`w-14 h-14 rounded-xl shrink-0 ${
                           product.image_color || "bg-gray-100"
@@ -330,11 +331,10 @@ export default function InventoryPage() {
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </Link>
 
                     <div
                       className="flex items-center justify-end gap-2 pt-1"
-                      onClick={(e) => e.stopPropagation()}
                     >
                       <NiimbotLabelPrint
                         productName={product.name}
@@ -442,7 +442,13 @@ export default function InventoryPage() {
                           </div>
                         </td>
                         <td className="px-5 py-3 font-bold text-gray-900">
-                          {product.name}
+                          <Link
+                            href={`/dashboard/products/${product.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:underline"
+                          >
+                            {product.name}
+                          </Link>
                         </td>
                         <td className="px-5 py-3 text-gray-500 text-xs font-mono">
                           {product.barcode || "—"}
