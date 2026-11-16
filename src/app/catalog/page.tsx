@@ -58,7 +58,7 @@ export default function PublicCatalogPage() {
 
   const [storeSettings, setStoreSettings] = useState({
     shopName: "RIZQ",
-    shopTagline: "Footwear & Shoes",
+    shopTagline: "Store Management",
     shopPhone: "",
     shopAddress: "",
     logoUrl: "",
@@ -68,7 +68,7 @@ export default function PublicCatalogPage() {
     const s = loadStoreSettings();
     setStoreSettings({
       shopName: s.shopName || "RIZQ",
-      shopTagline: s.shopTagline || "Footwear & Shoes",
+      shopTagline: s.shopTagline || "Store Management",
       shopPhone: s.shopPhone || "",
       shopAddress: s.shopAddress || "",
       logoUrl: s.logoUrl || "",
@@ -148,8 +148,8 @@ export default function PublicCatalogPage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${storeSettings.shopName} — Shoe Catalog`,
-          text: `Check out the latest shoes at ${storeSettings.shopName}!`,
+          title: `${storeSettings.shopName} — Product Catalog`,
+          text: `Check out the latest products at ${storeSettings.shopName}!`,
           url: shareUrl,
         });
         return;
@@ -239,7 +239,7 @@ export default function PublicCatalogPage() {
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search shoe name, size, or brand..."
+              placeholder="Search product name, variant, or brand..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full min-h-[44px] pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-gray-900"
@@ -286,7 +286,7 @@ export default function PublicCatalogPage() {
               <Package className="w-8 h-8 text-gray-600" />
             </div>
             <h3 className="text-base font-bold text-gray-900 mb-1">
-              No shoes found
+              No products found
             </h3>
             <p className="text-xs text-gray-500 mb-4">
               Try a different search word or select &ldquo;All&rdquo; categories.

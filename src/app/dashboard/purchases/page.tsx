@@ -138,7 +138,7 @@ export default function PurchasesPage() {
             Purchases &amp; Restocking
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">
-            Record incoming shoe batches and supplier costs
+            Record incoming stock batches and supplier costs
           </p>
         </div>
         <button

@@ -245,7 +245,7 @@ export default function InventoryPage() {
               No products yet. Add your first product
             </h3>
             <p className="text-sm text-gray-500 max-w-sm mb-5">
-              Start building your Rizq shoe inventory with prices, costs, sizes,
+              Start building your Rizq product inventory with prices, costs, variants,
               and barcodes.
             </p>
             <button

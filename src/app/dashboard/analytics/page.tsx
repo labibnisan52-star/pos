@@ -433,7 +433,7 @@ export default function AnalyticsPage() {
           </h3>
           <p className="text-xs sm:text-sm text-gray-500 max-w-sm mx-auto">
             Complete sales in the POS to view live sales trends, profit margins,
-            and top-selling shoe categories here.
+            and top-selling product categories here.
           </p>
         </div>
       ) : (
@@ -540,7 +540,7 @@ export default function AnalyticsPage() {
             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                  Top Selling Shoes
+                  Top Selling Products
                 </h3>
                 <span className="text-xs font-semibold text-gray-500">
                   Units Sold

@@ -31,7 +31,7 @@ export default function SettingsPage() {
 
   // Store information
   const [shopName, setShopName] = useState("RIZQ");
-  const [shopTagline, setShopTagline] = useState("Footwear & Shoes");
+  const [shopTagline, setShopTagline] = useState("Store Management");
   const [shopAddress, setShopAddress] = useState("");
   const [shopPhone, setShopPhone] = useState("");
   const [receiptFooter, setReceiptFooter] = useState(
@@ -619,7 +619,7 @@ DELETE FROM public.expenses;`;
                   type="text"
                   value={shopTagline}
                   onChange={(e) => setShopTagline(e.target.value)}
-                  placeholder="Footwear & Shoes"
+                  placeholder="Store Management"
                   className="w-full min-h-[46px] px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:bg-white focus:border-gray-900"
                 />
               </div>
@@ -735,7 +735,7 @@ DELETE FROM public.expenses;`;
                   className="w-full min-h-[44px] px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:bg-white focus:border-gray-900 font-mono"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
-                  💡 Even without an external API key, the POS automatically uses its built-in studio AI engine to isolate shoes and create crisp pure white product photos.
+                  💡 Even without an external API key, the POS automatically uses its built-in studio AI engine to isolate products and create crisp pure white product photos.
                 </p>
               </div>
             </div>

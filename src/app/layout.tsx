@@ -23,7 +23,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Rizq POS — Footwear & Shoe Store",
+  title: "Rizq POS — Store Management",
   description: "Point of Sale & Inventory Management for Rizq",
   manifest: "/manifest.json",
   icons: {

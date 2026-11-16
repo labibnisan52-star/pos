@@ -58,7 +58,7 @@ type RefundMethod = "Cash" | "Card" | "Mobile";
 const RETURN_REASONS = [
   "Wrong Size / Fit Issue",
   "Damaged / Defective",
-  "Wrong Shoe / Color",
+  "Wrong Item / Variant",
   "Customer Changed Mind",
   "Exchange / Other",
 ];
@@ -697,7 +697,7 @@ export default function SalesReturnPage() {
                   Restock Inventory
                 </p>
                 <p className="text-[11px] text-gray-500">
-                  Add returned shoes back to stock
+                  Add returned items back to stock
                 </p>
               </div>
               <div

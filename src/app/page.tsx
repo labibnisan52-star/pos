@@ -71,7 +71,7 @@ export default function LoginPage() {
           RIZQ POS
         </h1>
         <p className="text-gray-500 text-sm mb-8 text-center">
-          Sign in to manage sales and shoe inventory.
+          Sign in to manage sales and store inventory.
         </p>
 
         {/* Form */}

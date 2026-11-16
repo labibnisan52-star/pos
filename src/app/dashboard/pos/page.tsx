@@ -296,7 +296,7 @@ function SaleCartPanel({
               Cart is empty
             </h3>
             <p className="text-xs text-gray-500 max-w-[230px] mb-4">
-              Tap a shoe from the catalog or scan a barcode to start a sale.
+              Tap a product from the catalog or scan a barcode to start a sale.
             </p>
             <button
               type="button"
@@ -1568,7 +1568,7 @@ export default function POSPage() {
                   }
                 }
               }}
-              placeholder="Search shoe name, size, SKU, or barcode..."
+              placeholder="Search product name, variant, SKU, or barcode..."
               className="w-full min-h-[46px] pl-10 pr-9 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-900 shadow-2xs"
             />
             {searchQuery && (
@@ -1666,7 +1666,7 @@ export default function POSPage() {
                 No products yet. Add your first product
               </h2>
               <p className="text-sm text-gray-500 max-w-sm mb-5">
-                Your Rizq shoe catalog is empty. Add products with sizes, colors,
+                Your Rizq product catalog is empty. Add products with variants, colors,
                 and barcodes to start selling.
               </p>
               <Link

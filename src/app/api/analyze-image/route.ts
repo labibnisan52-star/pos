@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // Clean up base64 string if it has a data URL prefix
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    const prompt = `Analyze this shoe shop product image for "Rizq" and provide the following details in a perfectly valid JSON object.
+    const prompt = `Analyze this retail shop product image for "Rizq" and provide the following details in a perfectly valid JSON object.
 Use EXACTLY these keys (lowercase):
 {
   "name": "A short, descriptive product name",

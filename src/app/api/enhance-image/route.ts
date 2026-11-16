@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
               body: isJsonEndpoint
                 ? JSON.stringify({
                     prompt:
-                      "Professional footwear e-commerce studio photograph of the shoe, clean pure white background, studio lightbox lighting, sharp product details, 4k",
+                      "Professional e-commerce studio photograph of the product, clean pure white background, studio lightbox lighting, sharp product details, 4k",
                     image: dataUrl,
                     type: "edit",
                     resolution: "2K",

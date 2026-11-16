@@ -180,7 +180,7 @@ export default function DashboardLayout({
                       {shopName} POS
                     </span>
                     <p className="text-[11px] text-gray-500">
-                      Shoe Store Management
+                      Store Management
                     </p>
                   </div>
                 </div>
@@ -280,7 +280,7 @@ export default function DashboardLayout({
                     {shopName}
                   </span>
                   <span className="text-[11px] font-medium text-gray-400">
-                    Shoe POS
+                    Store POS
                   </span>
                 </div>
               </div>

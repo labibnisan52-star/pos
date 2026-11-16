@@ -54,7 +54,7 @@ export interface StorePrintSettings {
 
 const DEFAULT_SETTINGS: StorePrintSettings = {
   shopName: "RIZQ",
-  shopTagline: "Footwear & Shoes",
+  shopTagline: "Store Management",
   shopAddress: "",
   shopPhone: "",
   receiptFooter: "Thank you for shopping at Rizq!",
