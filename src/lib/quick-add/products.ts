@@ -121,7 +121,8 @@ export async function insertProduct(
 export async function updateProduct(
   supabase: SupabaseClient,
   id: string,
-  product: QuickAddProduct
+  product: QuickAddProduct,
+  category: string
 ): Promise<void> {
   const costBdt = roundMoney(product.cost);
   const sellBdt = roundMoney(product.sell);
@@ -130,6 +131,7 @@ export async function updateProduct(
     .from("products")
     .update({
       name: product.name,
+      category: category.trim() || "Uncategorized",
       cost_price: costBdt,
       price: sellBdt,
       stock: product.stock,

@@ -48,6 +48,11 @@ export function validateProductFields(
   return { name, cost, sell, stock };
 }
 
+/** "skip" (case-insensitive, trimmed) skips the current queued image. */
+export function isSkipCommand(input: string): boolean {
+  return input.trim().toLowerCase() === "skip";
+}
+
 /** "Name, cost price, selling price, stock" -> product, or { ok: false }. */
 export function parseQuickAdd(input: string): QuickAddParseResult {
   const parts = input.split(COMMA_PATTERN).map((p) => p.trim());

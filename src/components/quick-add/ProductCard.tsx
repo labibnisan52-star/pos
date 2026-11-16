@@ -6,9 +6,14 @@ import type { ProductMessage } from "./types";
 
 interface ProductCardProps {
   message: ProductMessage;
+  categories: string[];
   onRetry: (id: string) => void;
   onUndo: (id: string) => void;
-  onEdit: (id: string, raw: RawProductFields) => Promise<string | null>;
+  onEdit: (
+    id: string,
+    raw: RawProductFields,
+    category: string
+  ) => Promise<string | null>;
 }
 
 const formatNumber = (n: number) =>
@@ -19,6 +24,7 @@ const inputClass =
 
 export default function ProductCard({
   message,
+  categories,
   onRetry,
   onUndo,
   onEdit,
@@ -31,6 +37,7 @@ export default function ProductCard({
     sell: "",
     stock: "",
   });
+  const [editCategory, setEditCategory] = useState("");
   const [formError, setFormError] = useState("");
 
   const busy = status === "adding" || status === "removing" || status === "saving";
@@ -42,13 +49,14 @@ export default function ProductCard({
       sell: String(product.sell),
       stock: String(product.stock),
     });
+    setEditCategory(message.category);
     setFormError("");
     setEditing(true);
   };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const error = await onEdit(message.id, fields);
+    const error = await onEdit(message.id, fields, editCategory);
     if (error) setFormError(error);
     else setEditing(false);
   };
@@ -63,6 +71,10 @@ export default function ProductCard({
           : status === "added"
             ? "Added"
             : "";
+
+  const categoryOptions = Array.from(
+    new Set([...categories, message.category].filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="flex justify-end quick-add-in">
@@ -88,9 +100,8 @@ export default function ProductCard({
               {product.name}
             </p>
             <p className="mt-0.5 text-xs text-gray-500">
-              Cost {formatNumber(product.cost)} · Sell{" "}
-              {formatNumber(product.sell)} · Stock {product.stock} ·{" "}
-              {message.category}
+              {message.category} · Cost {formatNumber(product.cost)} · Sell{" "}
+              {formatNumber(product.sell)} · Stock {product.stock}
             </p>
             {statusLabel && (
               <p
@@ -132,6 +143,20 @@ export default function ProductCard({
                 value={fields.name}
                 onChange={(e) => setFields({ ...fields, name: e.target.value })}
               />
+            </label>
+            <label className="col-span-3 text-xs text-gray-500">
+              Category
+              <select
+                className={`${inputClass} mt-1`}
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+              >
+                {categoryOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="text-xs text-gray-500">
               Cost
@@ -209,4 +234,3 @@ export default function ProductCard({
     </div>
   );
 }
-

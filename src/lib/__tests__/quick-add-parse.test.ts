@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseQuickAdd } from "../quick-add/parse.ts";
+import { isSkipCommand, parseQuickAdd } from "../quick-add/parse.ts";
 
 describe("Quick Add parser (src/lib/quick-add/parse.ts)", () => {
   it("parses the standard format", () => {
@@ -51,6 +51,12 @@ describe("Quick Add parser (src/lib/quick-add/parse.ts)", () => {
 
   it("rejects an empty name", () => {
     assert.equal(parseQuickAdd(", 800, 1200, 15").ok, false);
+  });
+
+  it("recognizes skip command case-insensitively", () => {
+    assert.equal(isSkipCommand("skip"), true);
+    assert.equal(isSkipCommand("  SKIP  "), true);
+    assert.equal(isSkipCommand("Red Panjabi, 800, 1200, 15"), false);
   });
 });
 

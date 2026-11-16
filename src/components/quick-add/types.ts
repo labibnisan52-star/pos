@@ -12,6 +12,13 @@ export interface BotMessage {
   kind: "bot";
   id: string;
   text: string;
+  imageUrl?: string;
+}
+
+export interface ImageBatchMessage {
+  kind: "images";
+  id: string;
+  urls: string[];
 }
 
 export interface ProductMessage {
@@ -27,4 +34,4 @@ export interface ProductMessage {
   notice?: string;
 }
 
-export type ChatMessage = BotMessage | ProductMessage;
+export type ChatMessage = BotMessage | ImageBatchMessage | ProductMessage;
