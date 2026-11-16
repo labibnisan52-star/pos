@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Store,
@@ -31,12 +31,20 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [shopLogo, setShopLogo] = useState("");
   const [shopName, setShopName] = useState("RIZQ");
   const supabase = createClient();
   const { user, role, loading } = useAuth();
+
+  // Require authentication for all dashboard routes
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/");
+    }
+  }, [loading, user, router]);
 
   // Load store settings (including logo)
   useEffect(() => {
@@ -104,6 +112,10 @@ export default function DashboardLayout({
       pathname.startsWith("/dashboard/products") ||
       pathname.startsWith("/dashboard/purchases") ||
       pathname.startsWith("/dashboard/investors"));
+
+  if (loading || !user) {
+    return <div className="h-dvh bg-white" />;
+  }
 
   return (
     <div className="flex flex-col md:flex-row h-dvh bg-gray-50 overflow-hidden font-sans">

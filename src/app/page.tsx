@@ -18,6 +18,10 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      setErrorMsg("Please enter both email and password.");
+      return;
+    }
     setLoading(true);
     setErrorMsg("");
 
