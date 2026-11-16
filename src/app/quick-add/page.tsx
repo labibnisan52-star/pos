@@ -28,10 +28,10 @@ export default function QuickAddPage() {
     if (!loading && !user) router.replace("/");
   }, [loading, user, router]);
 
-  if (loading || !user) return <div className="h-dvh bg-white" />;
+  if (loading || !user) return <div className="flex-1 bg-white" />;
 
   return (
-    <main className="flex h-dvh flex-col bg-white">
+    <main className="flex flex-1 min-h-0 flex-col bg-white">
       <CategoryBar
         categories={categories}
         selectedCategory={selectedCategory}
