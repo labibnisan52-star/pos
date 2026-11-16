@@ -89,7 +89,8 @@ export default function ProductCard({
             </p>
             <p className="mt-0.5 text-xs text-gray-500">
               Cost {formatNumber(product.cost)} · Sell{" "}
-              {formatNumber(product.sell)} · Stock {product.stock}
+              {formatNumber(product.sell)} · Stock {product.stock} ·{" "}
+              {message.category}
             </p>
             {statusLabel && (
               <p

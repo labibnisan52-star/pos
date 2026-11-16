@@ -18,6 +18,7 @@ export interface ProductMessage {
   kind: "product";
   id: string;
   product: QuickAddProduct;
+  category: string;
   previewUrl: string | null;
   status: CardStatus;
   /** Shown with Retry when status is "error". */

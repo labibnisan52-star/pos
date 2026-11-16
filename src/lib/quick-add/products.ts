@@ -59,6 +59,7 @@ export async function removeProductImage(
 export async function insertProduct(
   supabase: SupabaseClient,
   product: QuickAddProduct,
+  category: string,
   imageUrl: string | null
 ): Promise<string> {
   // Same shape the Add Product modal writes, using only existing columns.
@@ -68,7 +69,7 @@ export async function insertProduct(
       {
         name: product.name,
         barcode: Math.floor(10000000 + Math.random() * 90000000).toString(),
-        category: "Uncategorized",
+        category: category.trim() || "Uncategorized",
         stock: product.stock,
         price: product.sell,
         cost_price: product.cost,

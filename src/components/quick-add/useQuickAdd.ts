@@ -18,12 +18,24 @@ import {
 } from "@/lib/quick-add/products";
 import type { ChatMessage, ProductMessage } from "./types";
 
+const DEFAULT_CATEGORIES = [
+  "Uncategorized",
+  "Apparel",
+  "Home Goods",
+  "Electronics",
+  "Personal Care",
+  "Stationery",
+  "Footwear",
+  "Accessories",
+];
+
 const FORMAT_HELP =
   "That doesn't look right. Please type:\nName, cost price, selling price, stock\n\nExample: Red Panjabi, 800, 1200, 15";
 
 /** Data needed to (re)try a save; kept out of render state. */
 interface Job {
   product: QuickAddProduct;
+  category: string;
   file: File | null;
   imageUrl: string | null;
   storagePath: string | null;
@@ -40,12 +52,39 @@ function messageOf(err: unknown): string {
 export function useQuickAdd() {
   const supabase = useMemo(() => createClient(), []);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const jobs = useRef(new Map<string, Job>());
   const previews = useRef<string[]>([]);
 
   useEffect(() => {
+    let active = true;
+    supabase
+      .from("products")
+      .select("category")
+      .not("category", "is", null)
+      .then(({ data }) => {
+        if (!active || !data) return;
+        const fromDb = data
+          .map((row) => String(row.category || "").trim())
+          .filter(Boolean);
+        if (fromDb.length > 0) {
+          setCategories((prev) => Array.from(new Set([...prev, ...fromDb])));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
+
+  useEffect(() => {
     const urls = previews.current;
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, []);
+
+  const addCategory = useCallback((name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    setCategories((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
   }, []);
 
   const patch = useCallback((id: string, changes: Partial<ProductMessage>) => {
@@ -75,6 +114,7 @@ export function useQuickAdd() {
           job.productId = await insertProduct(
             supabase,
             job.product,
+            job.category,
             job.imageUrl
           );
         }
@@ -88,7 +128,7 @@ export function useQuickAdd() {
 
   /** Returns "ok" when a card was queued, "invalid" when the text failed to parse. */
   const send = useCallback(
-    (text: string, file: File | null): "ok" | "invalid" => {
+    (text: string, file: File | null, category: string): "ok" | "invalid" => {
       const parsed = parseQuickAdd(text);
       if (!parsed.ok) {
         pushBot(FORMAT_HELP);
@@ -96,6 +136,7 @@ export function useQuickAdd() {
       }
 
       const id = nextId();
+      const chosenCategory = category.trim() || "Uncategorized";
       let previewUrl: string | null = null;
       if (file) {
         previewUrl = URL.createObjectURL(file);
@@ -104,6 +145,7 @@ export function useQuickAdd() {
 
       jobs.current.set(id, {
         product: parsed.value,
+        category: chosenCategory,
         file,
         imageUrl: null,
         storagePath: null,
@@ -115,6 +157,7 @@ export function useQuickAdd() {
           kind: "product",
           id,
           product: parsed.value,
+          category: chosenCategory,
           previewUrl,
           status: "adding",
         },
@@ -189,5 +232,14 @@ export function useQuickAdd() {
     [supabase, patch]
   );
 
-  return { messages, send, rejectImage, retry, undo, edit };
+  return {
+    messages,
+    categories,
+    addCategory,
+    send,
+    rejectImage,
+    retry,
+    undo,
+    edit,
+  };
 }

@@ -10,7 +10,16 @@ import InputBar from "@/components/quick-add/InputBar";
 export default function QuickAddPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { messages, send, rejectImage, retry, undo, edit } = useQuickAdd();
+  const {
+    messages,
+    categories,
+    addCategory,
+    send,
+    rejectImage,
+    retry,
+    undo,
+    edit,
+  } = useQuickAdd();
 
   useEffect(() => {
     if (!loading && !user) router.replace("/");
@@ -26,8 +35,12 @@ export default function QuickAddPage() {
         onUndo={undo}
         onEdit={edit}
       />
-      <InputBar onSend={send} onPickImage={rejectImage} />
+      <InputBar
+        categories={categories}
+        onAddCategory={addCategory}
+        onSend={send}
+        onPickImage={rejectImage}
+      />
     </main>
   );
 }
-
