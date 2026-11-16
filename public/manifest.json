@@ -1,7 +1,7 @@
 {
   "name": "Rizq POS",
   "short_name": "Rizq",
-  "description": "Rizq Footwear & Shoe Store Management POS",
+  "description": "Rizq Store Management POS",
   "start_url": "/dashboard/pos",
   "display": "standalone",
   "background_color": "#ffffff",

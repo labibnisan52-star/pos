@@ -814,7 +814,7 @@ export default function POSPage() {
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Variant picker modal state (for shoes with sizes/colors)
+  // Variant picker modal state (for products with sizes/colors/options)
   const [variantPickerProduct, setVariantPickerProduct] =
     useState<Product | null>(null);
 
@@ -1875,7 +1875,7 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Shoe Size / Color Variant Picker Modal */}
+      {/* Product Variant Picker Modal */}
       {variantPickerProduct && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
           <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl max-h-[85dvh] flex flex-col overflow-hidden">
