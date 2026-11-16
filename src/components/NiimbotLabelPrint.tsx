@@ -145,6 +145,7 @@ export default function NiimbotLabelPrint({
   }, [drawLabel]);
 
   const [showModal, setShowModal] = useState(false);
+  const [printerMode, setPrinterMode] = useState<"bluetooth" | "device">("bluetooth");
   const [printQtyInput, setPrintQtyInput] = useState("1");
   const printQty = Math.max(1, parseInt(printQtyInput, 10) || 1);
   const setPrintQty = (val: number | ((prev: number) => number)) => {
@@ -231,6 +232,106 @@ export default function NiimbotLabelPrint({
     }
   }, [barcodeValue, drawLabel]);
 
+  const executeDevicePrint = useCallback(
+    async (quantityToPrint: number = 1) => {
+      if (!barcodeValue) {
+        alert("This product does not have a barcode.");
+        return;
+      }
+
+      const count = Math.max(1, Math.min(1000, quantityToPrint));
+
+      try {
+        setStatus((s) => ({ ...s, isPrinting: true, error: null }));
+        await drawLabel();
+
+        const canvas = canvasRef.current;
+        if (!canvas) throw new Error("Canvas not found");
+        const dataUrl = canvas.toDataURL("image/png");
+
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.right = "0";
+        iframe.style.bottom = "0";
+        iframe.style.width = "0";
+        iframe.style.height = "0";
+        iframe.style.border = "0";
+        iframe.setAttribute("aria-hidden", "true");
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc || !iframe.contentWindow) {
+          iframe.remove();
+          throw new Error("Could not initialize device print frame.");
+        }
+
+        const labelsHtml = Array.from({ length: count })
+          .map(
+            () =>
+              `<div class="label-page"><img src="${dataUrl}" alt="Barcode label" /></div>`
+          )
+          .join("");
+
+        doc.open();
+        doc.write(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Print Label - ${productName.replace(/[<>&"]/g, "")}</title>
+    <style>
+      @page { size: 50mm 20mm; margin: 0; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #fff; }
+      .label-page {
+        width: 50mm;
+        height: 20mm;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        page-break-after: always;
+        break-after: page;
+        overflow: hidden;
+      }
+      .label-page:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+    </style>
+  </head>
+  <body>${labelsHtml}</body>
+</html>`);
+        doc.close();
+
+        const cleanup = () => {
+          setTimeout(() => {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+          }, 500);
+        };
+
+        const win = iframe.contentWindow;
+        win.onafterprint = cleanup;
+
+        setTimeout(() => {
+          win.focus();
+          win.print();
+          setStatus((s) => ({ ...s, isPrinting: false }));
+          setTimeout(cleanup, 60000);
+        }, 150);
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : "Device print failed";
+        setStatus((s) => ({ ...s, isPrinting: false, error: errorMsg }));
+        alert(`Print failed: ${errorMsg}`);
+      }
+    },
+    [barcodeValue, drawLabel, productName]
+  );
+
   const handleOpenPrintModal = useCallback(() => {
     setShowModal(true);
   }, []);
@@ -290,7 +391,7 @@ export default function NiimbotLabelPrint({
             </div>
 
             {/* Quick preset buttons */}
-            <div className="flex space-x-2 mb-6 w-full">
+            <div className="flex space-x-2 mb-5 w-full">
               {[1, 5, 10, 20, 50].map(n => (
                 <button
                   key={n}
@@ -307,6 +408,42 @@ export default function NiimbotLabelPrint({
               ))}
             </div>
 
+            {/* Printer Option Selector (Bluetooth default vs Device-added printer) */}
+            <div className="w-full mb-5">
+              <label className="block text-xs font-semibold text-gray-600 mb-2 text-center">
+                Select Printer
+              </label>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setPrinterMode("bluetooth")}
+                  className={`min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    printerMode === "bluetooth"
+                      ? "bg-black text-white shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Bluetooth (Default)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrinterMode("device")}
+                  className={`min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    printerMode === "device"
+                      ? "bg-black text-white shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Device Printer
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 text-center mt-1.5">
+                {printerMode === "bluetooth"
+                  ? "Direct print to NIIMBOT Bluetooth label printer"
+                  : "Print using any printer added to your device"}
+              </p>
+            </div>
+
             <div className="flex space-x-2 w-full">
               <button 
                 type="button"
@@ -319,7 +456,11 @@ export default function NiimbotLabelPrint({
                 type="button"
                 onClick={() => {
                   setShowModal(false);
-                  executePrint(printQty);
+                  if (printerMode === "device") {
+                    executeDevicePrint(printQty);
+                  } else {
+                    executePrint(printQty);
+                  }
                 }}
                 disabled={status.isConnecting || status.isPrinting}
                 className="flex-1 min-h-[44px] py-2.5 rounded-xl font-semibold text-sm bg-black text-white hover:bg-gray-800 transition-colors shadow-md flex items-center justify-center disabled:opacity-50"

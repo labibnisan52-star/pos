@@ -27,6 +27,8 @@ import {
   parseNumericInput,
   roundMoney,
 } from "@/lib/calculations";
+import { MAX_IMAGES_PER_PRODUCT } from "@/lib/visual-search/constants";
+import { replaceProductEmbeddings } from "@/lib/visual-search/generate";
 import { loadStoreSettings } from "@/components/ReceiptModal";
 
 interface AddProductModalProps {
@@ -89,8 +91,11 @@ export default function AddProductModal({
   const [brand, setBrand] = useState("");
   const [description, setDescription] = useState("");
 
-  // Image Upload & Nano Banana AI
+  // Image Upload & Nano Banana AI (plus up to 3 Visual Search reference angles)
   const [imageUrl, setImageUrl] = useState("");
+  const [extraImageUrls, setExtraImageUrls] = useState<string[]>([]);
+  const [uploadingExtraImage, setUploadingExtraImage] = useState(false);
+  const imageBlobsRef = useRef<Map<string, Blob>>(new Map());
   const [uploadingImage, setUploadingImage] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [useAI, setUseAI] = useState(true);
@@ -231,6 +236,8 @@ export default function AddProductModal({
       setTargetMargin("");
       setErrorMsg("");
       setImageUrl(productToEdit.image_url || "");
+      setExtraImageUrls([]);
+      imageBlobsRef.current.clear();
       setProductType(productToEdit.product_type || "Single Product");
       const editUnit = productToEdit.unit || "Piece";
       setUnit(editUnit);
@@ -244,8 +251,27 @@ export default function AddProductModal({
       setFundingSource(productToEdit.funding_source || "Me");
       setInvestorId(productToEdit.investor_id || "");
 
-      // Load existing variants if editing
+      // Load existing variants & extra visual search images if editing
       if (productToEdit.id) {
+        supabase
+          .from("product_embeddings")
+          .select("source_image_url")
+          .eq("product_id", productToEdit.id)
+          .then(({ data: embRows }) => {
+            if (!embRows) return;
+            const extras = Array.from(
+              new Set(
+                embRows
+                  .map((r: { source_image_url: string | null }) => r.source_image_url)
+                  .filter(
+                    (u): u is string =>
+                      Boolean(u) && u !== (productToEdit.image_url || "")
+                  )
+              )
+            ).slice(0, MAX_IMAGES_PER_PRODUCT - 1);
+            setExtraImageUrls(extras);
+          });
+
         supabase
           .from("product_variants")
           .select("*")
@@ -289,6 +315,8 @@ export default function AddProductModal({
       setTargetMargin("");
       setErrorMsg("");
       setImageUrl("");
+      setExtraImageUrls([]);
+      imageBlobsRef.current.clear();
       setImageEnhanced(false);
       setBankRate("17.0");
       setProductType("Single Product");
@@ -536,6 +564,7 @@ export default function AddProductModal({
         const { data } = supabase.storage
           .from("product_images")
           .getPublicUrl(fileName);
+        imageBlobsRef.current.set(data.publicUrl, cleanFile);
         setImageUrl(data.publicUrl);
       } else {
         const reader = new FileReader();
@@ -551,6 +580,52 @@ export default function AddProductModal({
       setUploadingImage(false);
       setAiProcessing(false);
       setAiStatusText("");
+    }
+  };
+
+  // Upload extra reference angles (up to 3 total images per product)
+  const handleExtraImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Extra product image must be under 5 MB.");
+      return;
+    }
+    const maxExtras = imageUrl
+      ? MAX_IMAGES_PER_PRODUCT - 1
+      : MAX_IMAGES_PER_PRODUCT;
+    if (extraImageUrls.length >= maxExtras) return;
+
+    setUploadingExtraImage(true);
+    setErrorMsg("");
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const fileName = `angle-${Math.random().toString(36).substring(7)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("product_images")
+        .upload(fileName, file, {
+          contentType: file.type || "image/jpeg",
+          upsert: false,
+        });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage
+        .from("product_images")
+        .getPublicUrl(fileName);
+      imageBlobsRef.current.set(data.publicUrl, file);
+      if (!imageUrl) {
+        setImageUrl(data.publicUrl);
+      } else {
+        setExtraImageUrls((prev) => [...prev, data.publicUrl]);
+      }
+    } catch (err: unknown) {
+      setErrorMsg(
+        err instanceof Error ? err.message : "Failed to upload extra image."
+      );
+    } finally {
+      setUploadingExtraImage(false);
     }
   };
 
@@ -790,6 +865,29 @@ export default function AddProductModal({
       }
     }
 
+    // Compute & save browser-side CLIP embeddings for up to 3 reference images
+    if (productData?.id) {
+      const allUrls = [imageUrl, ...extraImageUrls]
+        .map((u) => u.trim())
+        .filter((u) => Boolean(u) && u.startsWith("http"))
+        .slice(0, MAX_IMAGES_PER_PRODUCT);
+
+      if (allUrls.length > 0 || productToEdit) {
+        try {
+          await replaceProductEmbeddings(
+            supabase,
+            String(productData.id),
+            allUrls.map((u) => ({
+              imageUrl: u,
+              blob: imageBlobsRef.current.get(u),
+            }))
+          );
+        } catch (embErr) {
+          console.warn("Visual search embedding generation skipped:", embErr);
+        }
+      }
+    }
+
     setLoading(false);
     onSuccess();
     onClose();
@@ -963,6 +1061,77 @@ export default function AddProductModal({
                       )}
                     </button>
                   )}
+                </div>
+
+                {/* Extra reference photos for Visual Search (up to 3 total) */}
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase text-gray-500">
+                      Visual Search Photos (up to {MAX_IMAGES_PER_PRODUCT})
+                    </span>
+                    <span className="text-[11px] text-gray-400">
+                      {(imageUrl ? 1 : 0) + extraImageUrls.length}/
+                      {MAX_IMAGES_PER_PRODUCT}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {imageUrl && (
+                      <div className="relative w-14 h-14 rounded-xl border border-gray-200 overflow-hidden bg-white">
+                        <img
+                          src={imageUrl}
+                          alt="Primary"
+                          className="w-full h-full object-cover"
+                        />
+                        <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] text-center py-0.5 font-semibold">
+                          Main
+                        </span>
+                      </div>
+                    )}
+                    {extraImageUrls.map((url, idx) => (
+                      <div
+                        key={url}
+                        className="relative w-14 h-14 rounded-xl border border-gray-200 overflow-hidden bg-white"
+                      >
+                        <img
+                          src={url}
+                          alt={`Angle ${idx + 2}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExtraImageUrls((prev) =>
+                              prev.filter((_, i) => i !== idx)
+                            )
+                          }
+                          aria-label="Remove angle photo"
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/75 text-white text-xs flex items-center justify-center"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    {(imageUrl ? 1 : 0) + extraImageUrls.length <
+                      MAX_IMAGES_PER_PRODUCT && (
+                      <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-500 flex flex-col items-center justify-center cursor-pointer text-gray-500 text-[10px] font-bold bg-gray-50">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/png, image/jpeg, image/webp"
+                          onChange={handleExtraImageUpload}
+                          disabled={uploadingExtraImage}
+                        />
+                        {uploadingExtraImage ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            <span>Angle</span>
+                          </>
+                        )}
+                      </label>
+                    )}
+                  </div>
                 </div>
 
                 {imageEnhanced && imageUrl && (

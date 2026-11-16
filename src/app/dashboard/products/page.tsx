@@ -12,13 +12,19 @@ import {
   Package,
   ExternalLink,
   Share2,
+  Camera,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import AddProductModal from "@/components/AddProductModal";
 import NiimbotLabelPrint from "@/components/NiimbotLabelPrint";
 import { formatBDT, roundMoney } from "@/lib/calculations";
+import {
+  generateMissingProductEmbeddings,
+  type BatchEmbeddingProgress,
+} from "@/lib/visual-search/generate";
 
 type Product = {
   id: string;
@@ -39,11 +45,16 @@ type Product = {
 
 export default function InventoryPage() {
   const router = useRouter();
+  const { role } = useAuth();
   const supabase = useMemo(() => createClient(), []);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] =
+    useState<BatchEmbeddingProgress | null>(null);
+  const [batchError, setBatchError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("All Categories");
@@ -71,6 +82,28 @@ export default function InventoryPage() {
       await supabase.from("purchase_orders").delete().eq("product_id", id);
       await supabase.from("products").delete().eq("id", id);
       fetchProducts();
+    }
+  };
+
+  const handleGenerateEmbeddings = async () => {
+    if (batchRunning) return;
+    setBatchRunning(true);
+    setBatchError(null);
+    try {
+      const result = await generateMissingProductEmbeddings(
+        supabase,
+        (prog) => setBatchProgress(prog),
+        { batchSize: 5 }
+      );
+      setBatchProgress(result);
+    } catch (err) {
+      setBatchError(
+        err instanceof Error
+          ? err.message
+          : "Failed to generate visual search embeddings."
+      );
+    } finally {
+      setBatchRunning(false);
     }
   };
 
@@ -122,7 +155,26 @@ export default function InventoryPage() {
             Manage Rizq catalog, barcodes, and stock levels
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {role === "owner" && (
+            <button
+              type="button"
+              onClick={handleGenerateEmbeddings}
+              disabled={batchRunning}
+              className="min-h-[46px] px-4 py-2.5 bg-white border border-gray-200 text-gray-800 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-60"
+              title="Generate CLIP embeddings for existing product photos"
+            >
+              {batchRunning ? (
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
+              ) : (
+                <Camera className="w-4 h-4 text-emerald-700" />
+              )}
+              <span className="hidden sm:inline">
+                {batchRunning ? "Indexing Photos..." : "Generate Visual Index"}
+              </span>
+              <span className="sm:hidden">Visual Index</span>
+            </button>
+          )}
           <a
             href="/catalog"
             target="_blank"
@@ -147,6 +199,47 @@ export default function InventoryPage() {
           </button>
         </div>
       </div>
+
+      {/* Batch Visual Embedding Progress Banner */}
+      {(batchProgress || batchError) && (
+        <div className="mb-5 p-4 bg-white rounded-2xl border border-gray-200/80 space-y-2">
+          <div className="flex items-center justify-between gap-2 text-xs sm:text-sm font-bold text-gray-900">
+            <span>
+              {batchError
+                ? "Visual Index Error"
+                : batchRunning
+                  ? `Indexing: ${batchProgress?.currentName || "Preparing model..."}`
+                  : batchProgress && batchProgress.total === 0
+                    ? "All product photos already have visual search embeddings."
+                    : `Visual Index Complete: ${batchProgress?.succeeded ?? 0} indexed${
+                        batchProgress && batchProgress.failed > 0
+                          ? `, ${batchProgress.failed} failed`
+                          : ""
+                      }`}
+            </span>
+            {batchProgress && batchProgress.total > 0 && (
+              <span className="text-xs font-mono text-gray-500">
+                {batchProgress.processed} / {batchProgress.total}
+              </span>
+            )}
+          </div>
+          {batchError && (
+            <p className="text-xs text-red-600 font-medium">{batchError}</p>
+          )}
+          {batchProgress && batchProgress.total > 0 && (
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-700 transition-all duration-200"
+                style={{
+                  width: `${Math.round(
+                    (batchProgress.processed / batchProgress.total) * 100
+                  )}%`,
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">

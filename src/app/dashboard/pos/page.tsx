@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -19,6 +25,7 @@ import {
   WifiOff,
   ShoppingBag,
   QrCode,
+  Camera,
   X,
   Package,
   AlertCircle,
@@ -27,6 +34,8 @@ import {
   Layers,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { getVisualSearchDB } from "@/lib/visual-search/db";
+import { searchCachedProductsOffline } from "@/lib/visual-search/sync";
 import {
   calculateCartTotals,
   calculateLineTotal,
@@ -43,6 +52,11 @@ import ReceiptModal, { ReceiptOrderData } from "@/components/ReceiptModal";
 const BarcodeScanner = dynamic(() => import("@/components/BarcodeScanner"), {
   ssr: false,
 });
+
+const VisualSearchModal = dynamic(
+  () => import("@/components/visual-search/VisualSearchModal"),
+  { ssr: false }
+);
 
 interface Product {
   id: string;
@@ -792,6 +806,11 @@ export default function POSPage() {
 
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
+  const [offlineMatchedIds, setOfflineMatchedIds] = useState<Set<string> | null>(
+    null
+  );
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -854,13 +873,55 @@ export default function POSPage() {
 
   const fetchCatalog = useCallback(async () => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
+      let loadedFromLocal = false;
       try {
         const cachedProducts = localStorage.getItem("pos_products_cache");
         const cachedVariants = localStorage.getItem("pos_variants_cache");
-        if (cachedProducts) setProducts(JSON.parse(cachedProducts));
+        if (cachedProducts) {
+          setProducts(JSON.parse(cachedProducts));
+          loadedFromLocal = true;
+        }
         if (cachedVariants) setVariants(JSON.parse(cachedVariants));
       } catch {
         // Ignore malformed cache
+      }
+      if (!loadedFromLocal) {
+        try {
+          const db = getVisualSearchDB();
+          const [dexieProducts, dexieVariants] = await Promise.all([
+            db.products.toArray(),
+            db.variants.toArray(),
+          ]);
+          if (dexieProducts.length > 0) {
+            setProducts(
+              dexieProducts.map((p) => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                stock: p.stock,
+                category: p.category || "General",
+                image_url: p.image_url ?? undefined,
+                barcode: p.barcode ?? undefined,
+              }))
+            );
+          }
+          if (dexieVariants.length > 0) {
+            setVariants(
+              dexieVariants.map((v) => ({
+                id: v.id,
+                product_id: v.product_id,
+                variant_name: v.variant_name,
+                variant_value: v.variant_value,
+                sku: v.sku ?? "",
+                price: v.price ?? null,
+                stock: 0,
+                is_active: true,
+              }))
+            );
+          }
+        } catch {
+          // Ignore Dexie offline fallback errors
+        }
       }
       setLoading(false);
       return;
@@ -1019,13 +1080,38 @@ export default function POSPage() {
     [products]
   );
 
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (isOnline || !q) {
+      return;
+    }
+    let cancelled = false;
+    searchCachedProductsOffline(q)
+      .then((matches) => {
+        if (!cancelled) {
+          setOfflineMatchedIds(new Set(matches.map((m) => m.id)));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOfflineMatchedIds(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnline, searchQuery]);
+
   const filteredProducts = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
+    const effectiveOfflineIds = !isOnline && q ? offlineMatchedIds : null;
     return products.filter((p) => {
       const matchCategory =
         activeCategory === "All" || p.category === activeCategory;
       if (!matchCategory) return false;
       if (!q) return true;
+
+      if (effectiveOfflineIds !== null) {
+        return effectiveOfflineIds.has(p.id);
+      }
 
       const prodVariants = variantsByProduct.get(p.id) || [];
       const variantMatch = prodVariants.some(
@@ -1046,7 +1132,14 @@ export default function POSPage() {
         variantMatch
       );
     });
-  }, [products, activeCategory, searchQuery, variantsByProduct]);
+  }, [
+    products,
+    activeCategory,
+    searchQuery,
+    variantsByProduct,
+    isOnline,
+    offlineMatchedIds,
+  ]);
 
   // Shared calculation & validation via src/lib/calculations.ts
   const totals = useMemo(
@@ -1549,6 +1642,7 @@ export default function POSPage() {
           <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -1583,6 +1677,18 @@ export default function POSPage() {
             )}
           </div>
 
+          <button
+            type="button"
+            onClick={() => setIsVisualSearchOpen(true)}
+            aria-label="Visual product search with camera"
+            title="Visual Product Search"
+            className="relative min-w-[46px] min-h-[46px] bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-800 hover:bg-emerald-100 shadow-2xs shrink-0 transition-colors"
+          >
+            <Camera className="w-5 h-5" />
+            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-amber-500 text-[9px] font-black text-white leading-none shadow-xs">
+              NEW
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setIsScannerOpen(true)}
@@ -2062,6 +2168,37 @@ export default function POSPage() {
         <BarcodeScanner
           onScan={handleCameraScan}
           onClose={() => setIsScannerOpen(false)}
+        />
+      )}
+
+      {/* Visual Product Search Modal */}
+      {isVisualSearchOpen && (
+        <VisualSearchModal
+          isOpen={isVisualSearchOpen}
+          isOnline={isOnline}
+          products={products}
+          variants={variants}
+          cart={cart}
+          onClose={() => setIsVisualSearchOpen(false)}
+          onAddMatchToCart={(productId, variantId) => {
+            const product = products.find((p) => p.id === productId);
+            if (!product) return;
+            const variant = variantId
+              ? (variants.find((v) => v.id === variantId) ?? null)
+              : null;
+            addResolvedItemToCart(product, variant);
+          }}
+          onUpdateCartDelta={handleUpdateQuantityDelta}
+          onFallbackSearchManually={() => {
+            setIsVisualSearchOpen(false);
+            setTimeout(() => {
+              searchInputRef.current?.focus();
+            }, 50);
+          }}
+          onFallbackScanBarcode={() => {
+            setIsVisualSearchOpen(false);
+            setIsScannerOpen(true);
+          }}
         />
       )}
 

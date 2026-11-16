@@ -25,6 +25,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
 import { loadStoreSettings } from "@/components/ReceiptModal";
+import VisualSearchSyncBoot from "@/components/VisualSearchSyncBoot";
 
 export default function DashboardLayout({
   children,
@@ -121,6 +122,7 @@ export default function DashboardLayout({
 
   return (
     <div className="flex flex-col md:flex-row h-dvh bg-gray-50 overflow-hidden font-sans">
+      <VisualSearchSyncBoot />
       {/* Mobile Top Bar (< md) */}
       <header className="md:hidden h-14 px-3 bg-white border-b border-gray-200 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-2">

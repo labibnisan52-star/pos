@@ -6,11 +6,24 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === "development",
   register: true,
   cacheOnFrontEndNav: false,
+  publicExcludes: ["!models/**/*"],
   workboxOptions: {
     skipWaiting: true,
     clientsClaim: true,
     cleanupOutdatedCaches: true,
     runtimeCaching: [
+      {
+        // Self-hosted CLIP vision model & ONNX Runtime WASM files
+        urlPattern: /^\/models\/.*/i,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "local-ml-models",
+          expiration: {
+            maxEntries: 16,
+            maxAgeSeconds: 90 * 24 * 60 * 60,
+          },
+        },
+      },
       {
         // Never cache Supabase API / auth / storage requests
         urlPattern: /^https:\/\/[^/]+\.supabase\.co\/.*/i,
@@ -110,6 +123,8 @@ const nextConfig: NextConfig = {
       "@stoprocent/bluetooth-hci-socket": false,
       "@stoprocent/noble": false,
       "xpc-connection": false,
+      sharp: false,
+      "onnxruntime-node": false,
     };
     if (!isServer) {
       config.plugins = config.plugins || [];

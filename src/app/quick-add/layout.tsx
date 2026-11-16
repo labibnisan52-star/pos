@@ -7,3 +7,4 @@ export default function QuickAddLayout({
 }) {
   return <DashboardLayout>{children}</DashboardLayout>;
 }
+
