@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { calculateLineTotal, roundMoney } from "@/lib/calculations";
 import type { QuickAddProduct } from "./parse";
 
 // Existing bucket used by the Add Product modal (public read).
@@ -62,6 +63,9 @@ export async function insertProduct(
   category: string,
   imageUrl: string | null
 ): Promise<string> {
+  const costBdt = roundMoney(product.cost);
+  const sellBdt = roundMoney(product.sell);
+
   // Same shape the Add Product modal writes, using only existing columns.
   const { data, error } = await supabase
     .from("products")
@@ -71,8 +75,8 @@ export async function insertProduct(
         barcode: Math.floor(10000000 + Math.random() * 90000000).toString(),
         category: category.trim() || "Uncategorized",
         stock: product.stock,
-        price: product.sell,
-        cost_price: product.cost,
+        price: sellBdt,
+        cost_price: costBdt,
         image_color: "bg-gray-100",
         image_url: imageUrl,
       },
@@ -83,7 +87,35 @@ export async function insertProduct(
   if (error || !data) {
     throw new Error(error?.message || "Could not save the product.");
   }
-  return String(data.id);
+
+  const productId = String(data.id);
+
+  // Record initial stock intake in purchase_orders so Purchases & History stay in sync
+  if (product.stock > 0) {
+    const { error: poError } = await supabase.from("purchase_orders").insert([
+      {
+        product_id: productId,
+        product_name: product.name,
+        supplier_name: "Direct Intake",
+        quantity: product.stock,
+        remaining_quantity: product.stock,
+        cost_cny: 0,
+        cost_bdt: costBdt,
+        shipping_bdt: 0,
+        total_cost: calculateLineTotal(costBdt, product.stock),
+        selling_price: sellBdt,
+        payment_method: "Cash",
+        received_by: "Store Manager",
+        status: "Received",
+      },
+    ]);
+    if (poError) {
+      await supabase.from("products").delete().eq("id", productId);
+      throw new Error(`Could not record purchase: ${poError.message}`);
+    }
+  }
+
+  return productId;
 }
 
 export async function updateProduct(
@@ -91,22 +123,64 @@ export async function updateProduct(
   id: string,
   product: QuickAddProduct
 ): Promise<void> {
+  const costBdt = roundMoney(product.cost);
+  const sellBdt = roundMoney(product.sell);
+
   const { error } = await supabase
     .from("products")
     .update({
       name: product.name,
-      cost_price: product.cost,
-      price: product.sell,
+      cost_price: costBdt,
+      price: sellBdt,
       stock: product.stock,
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  // Keep the matching purchase_orders intake record in sync
+  const { data: existingPOs } = await supabase
+    .from("purchase_orders")
+    .select("id")
+    .eq("product_id", id);
+
+  if (existingPOs && existingPOs.length === 1) {
+    await supabase
+      .from("purchase_orders")
+      .update({
+        product_name: product.name,
+        quantity: product.stock,
+        remaining_quantity: product.stock,
+        cost_bdt: costBdt,
+        total_cost: calculateLineTotal(costBdt, product.stock),
+        selling_price: sellBdt,
+      })
+      .eq("id", existingPOs[0].id);
+  } else if ((!existingPOs || existingPOs.length === 0) && product.stock > 0) {
+    await supabase.from("purchase_orders").insert([
+      {
+        product_id: id,
+        product_name: product.name,
+        supplier_name: "Direct Intake",
+        quantity: product.stock,
+        remaining_quantity: product.stock,
+        cost_cny: 0,
+        cost_bdt: costBdt,
+        shipping_bdt: 0,
+        total_cost: calculateLineTotal(costBdt, product.stock),
+        selling_price: sellBdt,
+        payment_method: "Cash",
+        received_by: "Store Manager",
+        status: "Received",
+      },
+    ]);
+  }
 }
 
 export async function deleteProduct(
   supabase: SupabaseClient,
   id: string
 ): Promise<void> {
+  await supabase.from("purchase_orders").delete().eq("product_id", id);
   const { error } = await supabase.from("products").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }

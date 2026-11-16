@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "@/styles/niimbot-print.css";
 import { AuthProvider } from "@/context/AuthContext";
+import ServiceWorkerUpdater from "@/components/ServiceWorkerUpdater";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,6 +44,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col overflow-x-hidden bg-white text-gray-900">
+        <ServiceWorkerUpdater />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

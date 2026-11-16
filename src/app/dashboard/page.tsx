@@ -49,8 +49,20 @@ export default function DashboardPage() {
   const [netProfit, setNetProfit] = useState(0);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+
+  const withTimeout = useCallback(
+    <T,>(promise: PromiseLike<T>, ms = 12000, label = "Request"): Promise<T> =>
+      Promise.race([
+        Promise.resolve(promise),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`${label} timed out`)), ms)
+        ),
+      ]),
+    []
+  );
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -60,21 +72,38 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
     const checkUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/");
-      } else {
-        setLoading(false);
+      try {
+        const {
+          data: { user },
+        } = await withTimeout(
+          supabase.auth.getUser(),
+          10000,
+          "Authentication check"
+        );
+        if (!active) return;
+        if (!user) {
+          router.push("/");
+        }
+      } catch (err) {
+        console.error("Dashboard auth check failed:", err);
+        if (active) {
+          setErrorMsg("Could not verify session. Please check your connection and retry.");
+        }
+      } finally {
+        if (active) setLoading(false);
       }
     };
     checkUser();
-  }, [router, supabase]);
+    return () => {
+      active = false;
+    };
+  }, [router, supabase, withTimeout]);
 
   const fetchData = useCallback(async () => {
     setLoadingData(true);
+    setErrorMsg(null);
     try {
       let startIso = "";
       let endIso = "";
@@ -119,12 +148,13 @@ export default function DashboardPage() {
       }
 
       // 1. Fetch Summary via RPC (uses saved grand_total so discounts reduce profit)
-      const { data: summaryData, error: summaryError } = await supabase.rpc(
-        "get_summary",
-        {
+      const { data: summaryData, error: summaryError } = await withTimeout(
+        supabase.rpc("get_summary", {
           _date_from: startIso,
           _date_to: endIso,
-        }
+        }),
+        12000,
+        "Dashboard summary"
       );
 
       if (!summaryError && summaryData) {
@@ -270,10 +300,15 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error(err);
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Failed to load dashboard data. Please try again."
+      );
     } finally {
       setLoadingData(false);
     }
-  }, [supabase, timeFilter, customStartDate, customEndDate]);
+  }, [supabase, timeFilter, customStartDate, customEndDate, withTimeout]);
 
   useEffect(() => {
     if (!loading) {
@@ -293,6 +328,22 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-[#faf9f6] p-4 sm:p-6 lg:p-8 no-scrollbar relative">
+      {errorMsg && (
+        <div className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-red-800">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchData()}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
         <div>
