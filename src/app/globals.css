@@ -40,3 +40,18 @@ input[type="number"] {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Quick Add chat: simple fade/slide for new messages */
+@keyframes quick-add-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.quick-add-in {
+  animation: quick-add-in 160ms ease-out;
+}
