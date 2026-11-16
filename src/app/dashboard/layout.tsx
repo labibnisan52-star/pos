@@ -20,6 +20,7 @@ import {
   X,
   Globe,
   Coins,
+  MessageSquarePlus,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
@@ -68,6 +69,7 @@ export default function DashboardLayout({
     { name: "POS", href: "/dashboard/pos", icon: Store },
     { name: "Returns", href: "/dashboard/returns", icon: RotateCcw },
     { name: "Products", href: "/dashboard/products", icon: Package },
+    { name: "Quick Add", href: "/quick-add", icon: MessageSquarePlus },
     { name: "Purchases", href: "/dashboard/purchases", icon: ShoppingCart },
     { name: "Investors", href: "/dashboard/investors", icon: Briefcase },
     { name: "Customers", href: "/dashboard/customers", icon: Users },
