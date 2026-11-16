@@ -145,7 +145,15 @@ export default function NiimbotLabelPrint({
   }, [drawLabel]);
 
   const [showModal, setShowModal] = useState(false);
-  const [printQty, setPrintQty] = useState(1);
+  const [printQtyInput, setPrintQtyInput] = useState("1");
+  const printQty = Math.max(1, parseInt(printQtyInput, 10) || 1);
+  const setPrintQty = (val: number | ((prev: number) => number)) => {
+    setPrintQtyInput((prevStr) => {
+      const current = Math.max(1, parseInt(prevStr, 10) || 1);
+      const next = typeof val === "function" ? val(current) : val;
+      return String(Math.max(1, next));
+    });
+  };
 
   const executePrint = useCallback(async (quantityToPrint: number = 1) => {
     if (!barcodeValue) {
@@ -257,8 +265,19 @@ export default function NiimbotLabelPrint({
               <input 
                 type="text"
                 inputMode="numeric"
-                value={printQty}
-                onChange={e => setPrintQty(Math.max(1, parseInt(e.target.value.replace(/[^0-9]/g, ""), 10) || 1))}
+                value={printQtyInput}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const normalized = e.target.value
+                    .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
+                    .replace(/[^0-9]/g, "");
+                  setPrintQtyInput(normalized);
+                }}
+                onBlur={() => {
+                  if (!printQtyInput || parseInt(printQtyInput, 10) < 1) {
+                    setPrintQtyInput("1");
+                  }
+                }}
                 className="w-20 min-h-[44px] text-center font-bold text-xl text-gray-900 bg-transparent focus:outline-none"
               />
               <button 
