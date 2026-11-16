@@ -62,9 +62,10 @@ export async function insertProduct(
   product: QuickAddProduct,
   category: string,
   imageUrl: string | null
-): Promise<string> {
+): Promise<{ id: string; barcode: string }> {
   const costBdt = roundMoney(product.cost);
   const sellBdt = roundMoney(product.sell);
+  const barcode = Math.floor(10000000 + Math.random() * 90000000).toString();
 
   // Same shape the Add Product modal writes, using only existing columns.
   const { data, error } = await supabase
@@ -72,7 +73,7 @@ export async function insertProduct(
     .insert([
       {
         name: product.name,
-        barcode: Math.floor(10000000 + Math.random() * 90000000).toString(),
+        barcode,
         category: category.trim() || "Uncategorized",
         stock: product.stock,
         price: sellBdt,
@@ -115,7 +116,7 @@ export async function insertProduct(
     }
   }
 
-  return productId;
+  return { id: String(data.id), barcode };
 }
 
 export async function updateProduct(

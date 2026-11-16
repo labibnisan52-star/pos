@@ -247,14 +247,17 @@ export function useQuickAdd() {
           job.queued.uploadError = null;
         }
         if (!job.productId) {
-          job.productId = await insertProduct(
+          const inserted = await insertProduct(
             supabase,
             job.product,
             job.category,
             job.queued.imageUrl
           );
+          job.productId = inserted.id;
+          patch(id, { status: "added", barcode: inserted.barcode });
+        } else {
+          patch(id, { status: "added" });
         }
-        patch(id, { status: "added" });
       } catch (err) {
         patch(id, { status: "error", error: messageOf(err) });
       }

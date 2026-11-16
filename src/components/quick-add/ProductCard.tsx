@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { RawProductFields } from "@/lib/quick-add/parse";
+import NiimbotLabelPrint from "@/components/NiimbotLabelPrint";
 import type { ProductMessage } from "./types";
 
 interface ProductCardProps {
@@ -212,6 +213,30 @@ export default function ProductCard({
         {(status === "added" || status === "saving" || status === "removing") &&
           !editing && (
             <div className="mt-3 flex justify-end gap-4 border-t border-gray-100 pt-2">
+              {message.barcode && (
+                <NiimbotLabelPrint
+                  productName={product.name}
+                  productPrice={product.sell}
+                  barcodeValue={message.barcode}
+                >
+                  {(triggerPrint, printStatus) => (
+                    <button
+                      type="button"
+                      onClick={() => triggerPrint()}
+                      disabled={
+                        busy ||
+                        printStatus.isConnecting ||
+                        printStatus.isPrinting
+                      }
+                      className="text-xs font-medium text-gray-500 hover:text-gray-900 disabled:opacity-50"
+                    >
+                      {printStatus.isConnecting || printStatus.isPrinting
+                        ? "Printing..."
+                        : "Print Barcode"}
+                    </button>
+                  )}
+                </NiimbotLabelPrint>
+              )}
               <button
                 type="button"
                 onClick={startEdit}

@@ -26,6 +26,7 @@ export interface ProductMessage {
   id: string;
   product: QuickAddProduct;
   category: string;
+  barcode?: string;
   previewUrl: string | null;
   status: CardStatus;
   /** Shown with Retry when status is "error". */
