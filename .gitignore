@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# reassembled during prebuild from .chunks
+/public/models/Xenova/clip-vit-base-patch32/onnx/vision_model_quantized.onnx
