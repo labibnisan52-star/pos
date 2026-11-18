@@ -151,6 +151,17 @@ export const en = {
     defaultCopies: "Default Copies",
     useSystemPrintFallback: "Use System Print (Fallback)",
   },
+  deleteSale: {
+    button: "Delete",
+    confirmTitle: "Delete this sale?",
+    confirmDesc:
+      "Deleting this sale will restore product stock and automatically update dues, revenue, and profit.",
+    confirmAction: "Yes, Delete Sale",
+    deleting: "Deleting...",
+    cancel: "Cancel",
+    success: "Sale deleted and stock & totals updated.",
+    failed: "Failed to delete sale.",
+  },
 } as const;
 
 type DeepStringify<T> = {

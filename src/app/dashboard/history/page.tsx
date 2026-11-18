@@ -20,9 +20,12 @@ import {
   RefreshCw,
   Printer,
   Coins,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useTranslation } from "@/lib/i18n";
+import { Z_INDEX } from "@/lib/z-index";
 import {
   calculateLineTotal,
   DiscountType,
@@ -203,11 +206,46 @@ export default function HistoryPage() {
   );
   const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
 
+  const { t } = useTranslation();
+
+  // Delete Sale State
+  const [orderToDelete, setOrderToDelete] = useState<SaleOrder | null>(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
+  const [deleteToast, setDeleteToast] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
   // Collect Due Modal State
   const [selectedOrderForDue, setSelectedOrderForDue] =
     useState<CollectDueOrder | null>(null);
   const [collectMode, setCollectMode] = useState<"partial" | "full">("partial");
   const [isCollectDueOpen, setIsCollectDueOpen] = useState(false);
+
+  const handleConfirmDeleteSale = async () => {
+    if (!orderToDelete || isDeletingOrder) return;
+    setIsDeletingOrder(true);
+    try {
+      const res = await fetch(`/api/sales/${encodeURIComponent(orderToDelete.id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || t("deleteSale.failed"));
+      }
+      setSalesOrders((prev) => prev.filter((o) => o.id !== orderToDelete.id));
+      setOrderToDelete(null);
+      setDeleteToast({ type: "success", text: t("deleteSale.success") });
+      setTimeout(() => setDeleteToast(null), 4000);
+      await fetchData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t("deleteSale.failed");
+      setDeleteToast({ type: "error", text: msg });
+      setTimeout(() => setDeleteToast(null), 5000);
+    } finally {
+      setIsDeletingOrder(false);
+    }
+  };
 
   const handleOpenCollectDue = (
     order: SaleOrder,
@@ -994,6 +1032,19 @@ export default function HistoryPage() {
                                 : "Receipt"}
                             </span>
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setOrderToDelete(order)}
+                            className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-xs font-bold text-red-600 flex items-center gap-1 transition-colors"
+                            title={t("deleteSale.button")}
+                            style={{
+                              fontFamily:
+                                "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{t("deleteSale.button")}</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1115,6 +1166,19 @@ export default function HistoryPage() {
                               >
                                 <Printer className="w-3.5 h-3.5" />
                                 <span>Receipt</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setOrderToDelete(order)}
+                                className="min-h-[34px] px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-xs font-bold text-red-600 flex items-center gap-1 whitespace-nowrap transition-colors"
+                                title={t("deleteSale.button")}
+                                style={{
+                                  fontFamily:
+                                    "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>{t("deleteSale.button")}</span>
                               </button>
                             </div>
                           </td>
@@ -1395,6 +1459,81 @@ export default function HistoryPage() {
           setReceiptOrder(updatedOrder);
         }}
       />
+
+      {/* Delete Sale Toast */}
+      {deleteToast && (
+        <div
+          style={{
+            zIndex: Z_INDEX.toast,
+            fontFamily:
+              "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+          }}
+          className={`fixed bottom-5 right-5 max-w-sm px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold ${
+            deleteToast.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-red-50 border-red-200 text-red-800"
+          }`}
+        >
+          {deleteToast.text}
+        </div>
+      )}
+
+      {/* Delete Sale Confirmation Modal */}
+      {orderToDelete && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            zIndex: Z_INDEX.bottomSheet,
+            fontFamily:
+              "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+          }}
+          className="fixed inset-0 flex items-center justify-center bg-black/50 p-4"
+        >
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-gray-900">
+                  {t("deleteSale.confirmTitle")}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {shortId(orderToDelete.id)} •{" "}
+                  {orderToDelete.customer_name || "Walk-in"} • ৳
+                  {formatBDT(getOrderTotal(orderToDelete))}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-700 leading-relaxed bg-red-50/70 border border-red-100 rounded-xl p-3">
+              {t("deleteSale.confirmDesc")}
+            </p>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                disabled={isDeletingOrder}
+                className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-bold text-gray-700 transition-colors disabled:opacity-50"
+              >
+                {t("deleteSale.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSale}
+                disabled={isDeletingOrder}
+                className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-sm font-bold text-white transition-colors disabled:opacity-50"
+              >
+                {isDeletingOrder
+                  ? t("deleteSale.deleting")
+                  : t("deleteSale.confirmAction")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

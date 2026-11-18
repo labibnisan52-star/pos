@@ -153,4 +153,15 @@ export const bn: TranslationDictionary = {
     defaultCopies: "ডিফল্ট কপি",
     useSystemPrintFallback: "সিস্টেম প্রিন্ট ব্যবহার করুন (ফলব্যাক)",
   },
+  deleteSale: {
+    button: "মুছুন",
+    confirmTitle: "বিক্রয় মুছে ফেলবেন?",
+    confirmDesc:
+      "এই বিক্রয়টি মুছে ফেললে পণ্যের স্টক, বকেয়া, বিক্রি ও লাভের হিসাব স্বয়ংক্রিয়ভাবে আপডেট হয়ে যাবে।",
+    confirmAction: "হ্যাঁ, মুছে ফেলুন",
+    deleting: "মুছে ফেলা হচ্ছে...",
+    cancel: "বাতিল",
+    success: "বিক্রয় মুছে ফেলা হয়েছে এবং স্টক ও হিসাব আপডেট করা হয়েছে।",
+    failed: "বিক্রয় মুছে ফেলা যায়নি।",
+  },
 };
