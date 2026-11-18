@@ -96,13 +96,45 @@ export default function NiimbotLabelPrint({
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, W, H);
 
-      // Top Center: Brand Name "RIZQ"
+      // 1. Top Center: Brand Name "RIZQ"
       ctx.fillStyle = "#000000";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.font = "italic 900 32px 'Arial Black', Impact, sans-serif";
-      ctx.fillText("RIZQ", W / 2, 6);
+      ctx.font = "italic 900 28px 'Arial Black', Impact, sans-serif";
+      ctx.fillText("RIZQ", W / 2, 4);
 
+      // 2. Middle Row: Product Name (left) & Price (right)
+      const rowY = 36;
+      ctx.textAlign = "left";
+      ctx.font = "bold 15px Arial, Helvetica, sans-serif";
+      const maxTextWidth = W * 0.6;
+      const words = productName.split(" ");
+      let lines: string[] = [];
+      let currentLine = "";
+
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxTextWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      lines = lines.slice(0, 2);
+
+      const lineHeight = 17;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], 12, rowY + i * lineHeight, maxTextWidth);
+      }
+
+      ctx.textAlign = "right";
+      ctx.font = "bold 20px Arial, Helvetica, sans-serif";
+      ctx.fillText(`TK ${productPrice.toFixed(2)}`, W - 12, rowY);
+
+      // 3. Bottom: Barcode with Number Below
       const barcodeContainer = barcodeContainerRef.current;
       if (barcodeContainer && effectiveBarcode) {
         const svgElement = barcodeContainer.querySelector("svg");
@@ -113,47 +145,12 @@ export default function NiimbotLabelPrint({
 
           const img = new Image();
           img.onload = () => {
-            // Middle: Barcode with Number Below
-            const targetW = 280;
-            const targetH = 75;
+            const barcodeY = lines.length > 1 ? 72 : 60;
+            const targetW = 300;
+            const targetH = Math.max(48, H - barcodeY - 4);
             const barcodeX = (W - targetW) / 2;
-            const barcodeY = 40;
             ctx.drawImage(img, barcodeX, barcodeY, targetW, targetH);
             URL.revokeObjectURL(url);
-            
-            // Bottom Left: Product Details
-            ctx.textAlign = "left";
-            ctx.font = "bold 16px Arial, Helvetica, sans-serif";
-            const maxTextWidth = W * 0.65;
-            const words = productName.split(" ");
-            let lines: string[] = [];
-            let currentLine = "";
-
-            for (const word of words) {
-              const testLine = currentLine ? `${currentLine} ${word}` : word;
-              const metrics = ctx.measureText(testLine);
-              if (metrics.width > maxTextWidth && currentLine) {
-                lines.push(currentLine);
-                currentLine = word;
-              } else {
-                currentLine = testLine;
-              }
-            }
-            if (currentLine) lines.push(currentLine);
-            lines = lines.slice(0, 2);
-
-            const textStartY = 122;
-            const lineHeight = 18;
-
-            for (let i = 0; i < lines.length; i++) {
-              ctx.fillText(lines[i], 12, textStartY + i * lineHeight, maxTextWidth);
-            }
-
-            // Bottom Right: Price
-            ctx.textAlign = "right";
-            ctx.font = "bold 26px Arial, Helvetica, sans-serif";
-            ctx.fillText(`TK ${productPrice.toFixed(2)}`, W - 12, 126);
-
             resolve();
           };
           img.onerror = () => {
