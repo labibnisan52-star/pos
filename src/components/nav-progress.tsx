@@ -100,28 +100,6 @@ export default function NavProgress() {
       }
     };
 
-    // Intercept programmatic router.push() via history.pushState
-    const origPushState = window.history.pushState.bind(window.history);
-    window.history.pushState = function (
-      data: unknown,
-      unused: string,
-      url?: string | URL | null
-    ) {
-      if (url) {
-        try {
-          const nextUrl = new URL(String(url), window.location.origin);
-          const currentFull = `${window.location.pathname}${window.location.search}`;
-          const nextFull = `${nextUrl.pathname}${nextUrl.search}`;
-          if (nextFull !== currentFull) {
-            handleStart();
-          }
-        } catch {
-          // Ignore
-        }
-      }
-      return origPushState(data, unused, url);
-    };
-
     const onPopState = () => handleStart();
 
     document.addEventListener("click", onDocumentClick, true);
@@ -133,7 +111,6 @@ export default function NavProgress() {
       doneListeners.delete(handleDone);
       document.removeEventListener("click", onDocumentClick, true);
       window.removeEventListener("popstate", onPopState);
-      window.history.pushState = origPushState;
     };
   }, []);
 

@@ -11,7 +11,7 @@ const withPWA = withPWAInit({
   },
   publicExcludes: ["!models/**/*"],
   workboxOptions: {
-    skipWaiting: false,
+    skipWaiting: true,
     clientsClaim: true,
     cleanupOutdatedCaches: true,
     runtimeCaching: [
