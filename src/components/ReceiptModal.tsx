@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Check, Printer, X, Plus } from "lucide-react";
+import { Check, Printer, X, Plus, Bluetooth, Loader2 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import {
   calculateLineTotal,
@@ -10,6 +10,7 @@ import {
   PaymentStatus,
 } from "@/lib/calculations";
 import { useTranslation } from "@/lib/i18n";
+import { printReceiptViaBluetooth } from "@/lib/bluetooth-receipt";
 
 export interface ReceiptItemData {
   name: string;
@@ -111,6 +112,7 @@ export default function ReceiptModal({
   const receiptRef = useRef<HTMLDivElement>(null);
   const [settings, setSettings] = useState<StorePrintSettings>(DEFAULT_SETTINGS);
   const [paperWidth, setPaperWidth] = useState<"80mm" | "58mm">("80mm");
+  const [btPrinting, setBtPrinting] = useState(false);
 
   useEffect(() => {
     if (order) {
@@ -444,19 +446,49 @@ export default function ReceiptModal({
         </div>
 
         {/* Modal Footer Actions (44px+ touch targets) */}
-        <div className="p-4 border-t border-gray-100 bg-white flex gap-3 shrink-0">
+        <div className="p-4 border-t border-gray-100 bg-white flex flex-wrap gap-2.5 shrink-0">
+          <button
+            type="button"
+            disabled={btPrinting}
+            onClick={async () => {
+              if (!order || btPrinting) return;
+              setBtPrinting(true);
+              try {
+                await printReceiptViaBluetooth(order, settings, shortOrderNo);
+              } catch (err: unknown) {
+                const msg =
+                  err instanceof Error ? err.message : "Bluetooth print failed";
+                alert(msg);
+              } finally {
+                setBtPrinting(false);
+              }
+            }}
+            className="flex-1 min-w-[120px] min-h-[48px] py-3 px-3 bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors disabled:opacity-60"
+          >
+            {btPrinting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                <span>Printing...</span>
+              </>
+            ) : (
+              <>
+                <Bluetooth className="w-4 h-4 shrink-0" />
+                <span>Bluetooth</span>
+              </>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => handlePrint()}
-            className="flex-1 min-h-[48px] py-3 px-4 bg-[#f3f0ea] text-gray-900 font-bold text-sm rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+            className="flex-1 min-w-[120px] min-h-[48px] py-3 px-3 bg-[#f3f0ea] text-gray-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors"
           >
             <Printer className="w-4 h-4 shrink-0" />
-            <span>Print Receipt</span>
+            <span>Print</span>
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 min-h-[48px] py-3 px-4 bg-black text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+            className="flex-1 min-w-[120px] min-h-[48px] py-3 px-3 bg-black text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-gray-800 transition-colors"
           >
             <Plus className="w-4 h-4 shrink-0" />
             <span>{primaryActionLabel}</span>

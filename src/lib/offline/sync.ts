@@ -377,3 +377,4 @@ export async function retryAllFailedSales(): Promise<void> {
   notifyOfflineSyncListeners();
   await syncPendingSales({ ignoreBackoff: true });
 }
+

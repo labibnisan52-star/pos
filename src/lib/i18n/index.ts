@@ -57,3 +57,4 @@ export function useTranslation(locale: Locale = DEFAULT_LOCALE) {
       translate(key, vars, locale),
   };
 }
+
