@@ -45,14 +45,15 @@ export function buildLabelCanvas(
   // 1. Top Center: Brand Name "RIZQ"
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `italic 900 ${Math.round(28 * scaleY)}px 'Arial Black', Impact, sans-serif`;
-  ctx.fillText("RIZQ", W / 2, Math.round(4 * scaleY));
+  ctx.font = `italic 900 ${Math.round(22 * scaleY)}px 'Arial Black', Impact, sans-serif`;
+  ctx.fillText("RIZQ", W / 2, Math.round(6 * scaleY));
 
   // 2. Middle Row: Product Name (left) & Price (right)
-  const rowY = Math.round(36 * scaleY);
+  const rowY = Math.round(31 * scaleY);
+  const sidePad = Math.round(24 * scaleX);
   ctx.textAlign = "left";
-  ctx.font = `bold ${Math.round(15 * scaleY)}px ${BENGALI_FONT_STACK}`;
-  const maxTextWidth = W * 0.6;
+  ctx.font = `bold ${Math.round(13 * scaleY)}px ${BENGALI_FONT_STACK}`;
+  const maxTextWidth = W * 0.56;
   const words = data.productName.split(" ");
   let lines: string[] = [];
   let currentLine = "";
@@ -69,21 +70,21 @@ export function buildLabelCanvas(
   if (currentLine) lines.push(currentLine);
   lines = lines.slice(0, 2);
 
-  const lineHeight = Math.round(17 * scaleY);
+  const lineHeight = Math.round(14 * scaleY);
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(
       lines[i],
-      Math.round(12 * scaleX),
+      sidePad,
       rowY + i * lineHeight,
       maxTextWidth
     );
   }
 
   ctx.textAlign = "right";
-  ctx.font = `bold ${Math.round(20 * scaleY)}px Arial, Helvetica, sans-serif`;
+  ctx.font = `bold ${Math.round(16 * scaleY)}px Arial, Helvetica, sans-serif`;
   ctx.fillText(
     `TK ${data.price.toFixed(2)}`,
-    W - Math.round(12 * scaleX),
+    W - sidePad,
     rowY
   );
 
@@ -93,11 +94,11 @@ export function buildLabelCanvas(
       ? data.barcode.padStart(8, "0")
       : data.barcode || "00000000";
 
-  const barcodeY = Math.round((lines.length > 1 ? 72 : 60) * scaleY);
-  const targetW = Math.round(300 * scaleX);
+  const barcodeY = Math.round((lines.length > 1 ? 61 : 49) * scaleY);
+  const targetW = Math.round(230 * scaleX);
   const targetH = Math.max(
-    Math.round(48 * scaleY),
-    H - barcodeY - Math.round(4 * scaleY)
+    Math.round(40 * scaleY),
+    H - barcodeY - Math.round(8 * scaleY)
   );
   const barcodeX = Math.round((W - targetW) / 2);
 
@@ -105,10 +106,10 @@ export function buildLabelCanvas(
   try {
     JsBarcode(barcodeCanvas, effectiveCode, {
       format: "CODE128",
-      width: 2,
-      height: 55,
+      width: 1.5,
+      height: 42,
       displayValue: true,
-      fontSize: 14,
+      fontSize: 12,
       margin: 2,
       background: "#ffffff",
       lineColor: "#000000",
@@ -117,8 +118,8 @@ export function buildLabelCanvas(
     ctx.drawImage(barcodeCanvas, barcodeX, barcodeY, targetW, targetH);
   } catch {
     ctx.textAlign = "center";
-    ctx.font = "bold 16px monospace";
-    ctx.fillText(effectiveCode, W / 2, barcodeY + Math.round(16 * scaleY), W - 24);
+    ctx.font = "bold 14px monospace";
+    ctx.fillText(effectiveCode, W / 2, barcodeY + Math.round(14 * scaleY), W - 32);
   }
 
   return canvas;

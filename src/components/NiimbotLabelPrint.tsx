@@ -100,14 +100,15 @@ export default function NiimbotLabelPrint({
       ctx.fillStyle = "#000000";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.font = "italic 900 28px 'Arial Black', Impact, sans-serif";
-      ctx.fillText("RIZQ", W / 2, 4);
+      ctx.font = "italic 900 22px 'Arial Black', Impact, sans-serif";
+      ctx.fillText("RIZQ", W / 2, 6);
 
       // 2. Middle Row: Product Name (left) & Price (right)
-      const rowY = 36;
+      const rowY = 31;
+      const sidePad = 24;
       ctx.textAlign = "left";
-      ctx.font = "bold 15px Arial, Helvetica, sans-serif";
-      const maxTextWidth = W * 0.6;
+      ctx.font = "bold 13px Arial, Helvetica, sans-serif";
+      const maxTextWidth = W * 0.56;
       const words = productName.split(" ");
       let lines: string[] = [];
       let currentLine = "";
@@ -125,14 +126,14 @@ export default function NiimbotLabelPrint({
       if (currentLine) lines.push(currentLine);
       lines = lines.slice(0, 2);
 
-      const lineHeight = 17;
+      const lineHeight = 14;
       for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], 12, rowY + i * lineHeight, maxTextWidth);
+        ctx.fillText(lines[i], sidePad, rowY + i * lineHeight, maxTextWidth);
       }
 
       ctx.textAlign = "right";
-      ctx.font = "bold 20px Arial, Helvetica, sans-serif";
-      ctx.fillText(`TK ${productPrice.toFixed(2)}`, W - 12, rowY);
+      ctx.font = "bold 16px Arial, Helvetica, sans-serif";
+      ctx.fillText(`TK ${productPrice.toFixed(2)}`, W - sidePad, rowY);
 
       // 3. Bottom: Barcode with Number Below
       const barcodeContainer = barcodeContainerRef.current;
@@ -145,9 +146,9 @@ export default function NiimbotLabelPrint({
 
           const img = new Image();
           img.onload = () => {
-            const barcodeY = lines.length > 1 ? 72 : 60;
-            const targetW = 300;
-            const targetH = Math.max(48, H - barcodeY - 4);
+            const barcodeY = lines.length > 1 ? 61 : 49;
+            const targetW = 230;
+            const targetH = Math.max(40, H - barcodeY - 8);
             const barcodeX = (W - targetW) / 2;
             ctx.drawImage(img, barcodeX, barcodeY, targetW, targetH);
             URL.revokeObjectURL(url);
