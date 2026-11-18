@@ -113,6 +113,11 @@ export default function ReceiptModal({
   const [settings, setSettings] = useState<StorePrintSettings>(DEFAULT_SETTINGS);
   const [paperWidth, setPaperWidth] = useState<"80mm" | "58mm">("80mm");
   const [btPrinting, setBtPrinting] = useState(false);
+  const [usbPrinting, setUsbPrinting] = useState(false);
+  const [usbFeedback, setUsbFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (order) {
@@ -446,53 +451,127 @@ export default function ReceiptModal({
         </div>
 
         {/* Modal Footer Actions (44px+ touch targets) */}
-        <div className="p-4 border-t border-gray-100 bg-white flex flex-wrap gap-2.5 shrink-0">
-          <button
-            type="button"
-            disabled={btPrinting}
-            onClick={async () => {
-              if (!order || btPrinting) return;
-              setBtPrinting(true);
-              try {
-                await printReceiptViaBluetooth(order, settings, shortOrderNo);
-              } catch (err: unknown) {
-                const msg =
-                  err instanceof Error ? err.message : "Bluetooth print failed";
-                alert(msg);
-              } finally {
-                setBtPrinting(false);
-              }
-            }}
-            className="flex-1 min-w-[120px] min-h-[48px] py-3 px-3 bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors disabled:opacity-60"
-          >
-            {btPrinting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                <span>Printing...</span>
-              </>
-            ) : (
-              <>
-                <Bluetooth className="w-4 h-4 shrink-0" />
-                <span>Bluetooth</span>
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => handlePrint()}
-            className="flex-1 min-w-[120px] min-h-[48px] py-3 px-3 bg-[#f3f0ea] text-gray-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors"
-          >
-            <Printer className="w-4 h-4 shrink-0" />
-            <span>Print</span>
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 min-w-[120px] min-h-[48px] py-3 px-3 bg-black text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-gray-800 transition-colors"
-          >
-            <Plus className="w-4 h-4 shrink-0" />
-            <span>{primaryActionLabel}</span>
-          </button>
+        <div className="p-4 border-t border-gray-100 bg-white space-y-2.5 shrink-0">
+          {usbFeedback && (
+            <div
+              style={{
+                fontFamily:
+                  "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+              }}
+              className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 ${
+                usbFeedback.type === "success"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                  : "bg-red-50 border-red-200 text-red-800"
+              }`}
+            >
+              <span className="flex-1">{usbFeedback.message}</span>
+              {usbFeedback.type === "error" && (
+                <button
+                  type="button"
+                  onClick={() => handlePrint()}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-red-200 text-gray-900 text-[11px] font-bold hover:bg-gray-50 shrink-0"
+                >
+                  {t("usbPrinter.useSystemPrintFallback")}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              type="button"
+              disabled={btPrinting || usbPrinting}
+              onClick={async () => {
+                if (!order || btPrinting) return;
+                setBtPrinting(true);
+                setUsbFeedback(null);
+                try {
+                  await printReceiptViaBluetooth(order, settings, shortOrderNo);
+                } catch (err: unknown) {
+                  const msg =
+                    err instanceof Error ? err.message : "Bluetooth print failed";
+                  setUsbFeedback({ type: "error", message: msg });
+                } finally {
+                  setBtPrinting(false);
+                }
+              }}
+              className="flex-1 min-w-[110px] min-h-[48px] py-3 px-3 bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors disabled:opacity-60"
+            >
+              {btPrinting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>{t("usbPrinter.printing")}</span>
+                </>
+              ) : (
+                <>
+                  <Bluetooth className="w-4 h-4 shrink-0" />
+                  <span>Bluetooth</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={usbPrinting || btPrinting}
+              onClick={async () => {
+                if (!order || usbPrinting) return;
+                setUsbPrinting(true);
+                setUsbFeedback(null);
+                try {
+                  const printer = await import("@/lib/printer");
+                  if (!printer.isWebUsbSupported()) {
+                    setUsbFeedback({
+                      type: "error",
+                      message: t("usbPrinter.unsupported"),
+                    });
+                    return;
+                  }
+                  const status = printer.getStatus();
+                  if (!status.connected) {
+                    const reconnected = await printer.autoReconnectPrinter();
+                    if (!reconnected) {
+                      await printer.connectPrinter();
+                    }
+                  }
+                  await printer.printReceipt(order, settings);
+                  setUsbFeedback({
+                    type: "success",
+                    message: t("usbPrinter.printSuccess"),
+                  });
+                } catch (err: unknown) {
+                  const msg =
+                    err instanceof Error
+                      ? err.message
+                      : t("usbPrinter.deviceDisconnected");
+                  setUsbFeedback({ type: "error", message: msg });
+                } finally {
+                  setUsbPrinting(false);
+                }
+              }}
+              className="flex-1 min-w-[110px] min-h-[48px] py-3 px-3 bg-[#f3f0ea] text-gray-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors disabled:opacity-60"
+            >
+              {usbPrinting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>{t("usbPrinter.printing")}</span>
+                </>
+              ) : (
+                <>
+                  <Printer className="w-4 h-4 shrink-0" />
+                  <span>Print</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 min-w-[110px] min-h-[48px] py-3 px-3 bg-black text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 hover:bg-gray-800 transition-colors"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>{primaryActionLabel}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import dynamic from "next/dynamic";
 import {
   Check,
   LogOut,
@@ -23,6 +24,11 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
 import { loadStoreSettings, StorePrintSettings } from "@/components/ReceiptModal";
+
+const UsbPrinterSettingsCard = dynamic(
+  () => import("@/components/printer/UsbPrinterSettingsCard"),
+  { ssr: false }
+);
 
 export default function SettingsPage() {
   const { user, role } = useAuth();
@@ -757,6 +763,9 @@ DELETE FROM public.expenses;`;
             </div>
           </div>
         </form>
+
+        {/* WebUSB Thermal Printer Settings */}
+        <UsbPrinterSettingsCard />
 
         {/* Danger Zone: Reset Store Data */}
         <div className="bg-white rounded-2xl border-2 border-red-100 p-5 sm:p-6 space-y-4">

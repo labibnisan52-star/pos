@@ -1870,7 +1870,28 @@ export default function AddProductModal({
                   {barcode && (
                     <button
                       type="button"
-                      onClick={() => handlePrintBarcode()}
+                      onClick={async () => {
+                        try {
+                          const printer = await import("@/lib/printer");
+                          if (printer.isWebUsbSupported()) {
+                            const st = printer.getStatus();
+                            if (st.connected || (await printer.autoReconnectPrinter())) {
+                              await printer.printLabel(
+                                {
+                                  productName: name || "Product",
+                                  price: numericSellingPriceBDT,
+                                  barcode,
+                                },
+                                1
+                              );
+                              return;
+                            }
+                          }
+                        } catch {
+                          // Fall back to system print dialog below
+                        }
+                        handlePrintBarcode();
+                      }}
                       className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
                       title="Print Barcode Label"
                     >

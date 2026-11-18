@@ -105,6 +105,52 @@ export const en = {
     statusSyncing: "Syncing",
     statusFailed: "Failed",
   },
+  labelPrint: {
+    printerMode: "Printer Mode",
+    niimbotDirect: "NIIMBOT Direct (RFID Roll)",
+    devicePrinter: "Device Printer (Any Roll)",
+    rfidFallbackTitle: "No RFID on this roll. Print in Device Printer mode?",
+    rfidErrorDesc:
+      "Printer rejected this roll. Use an original RFID roll or print in Device Printer mode.",
+    printOnDevicePrinter: "Print on Device Printer",
+    rememberMode: "Remember this mode",
+    cancel: "Cancel",
+    details: "Details",
+    printErrorTitle: "Print Failed",
+    ok: "OK",
+    noBarcode: "This product does not have a barcode.",
+    bluetoothUnsupported:
+      "Web Bluetooth is not supported in this browser. Please use Chrome or Edge.",
+  },
+  usbPrinter: {
+    sectionTitle: "USB Thermal Printer (ESC/POS)",
+    sectionDesc:
+      "Print receipts and labels directly from Chrome/Edge via WebUSB (no CUPS pause).",
+    connect: "Connect Printer",
+    disconnect: "Disconnect",
+    connected: "Connected",
+    disconnected: "Disconnected",
+    testPrint: "Test Print",
+    calibrationPrint: "Calibration Box",
+    printing: "Printing...",
+    printSuccess: "Printed successfully!",
+    unsupported:
+      "WebUSB is not supported in this browser. Please use Chrome or Edge over HTTPS.",
+    permissionDenied:
+      "USB printer permission was denied. Please select your printer and allow access.",
+    claimInterfaceError:
+      "Unable to claim USB interface. Remove the printer from macOS System Settings > Printers & Scanners, unplug and replug USB, and close other apps/tabs using it.",
+    deviceDisconnected:
+      "Printer disconnected. Check the USB cable and reconnect.",
+    paperWidth: "Paper Width",
+    density: "Print Density",
+    labelWidthMm: "Label Width (mm)",
+    labelHeightMm: "Label Height (mm)",
+    receiptFeedLines: "Receipt Extra Feed (lines)",
+    labelFeedMm: "Feed After Each Label (mm)",
+    defaultCopies: "Default Copies",
+    useSystemPrintFallback: "Use System Print (Fallback)",
+  },
 } as const;
 
 type DeepStringify<T> = {

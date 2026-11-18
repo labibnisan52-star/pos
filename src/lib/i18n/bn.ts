@@ -107,4 +107,50 @@ export const bn: TranslationDictionary = {
     statusSyncing: "সিঙ্ক হচ্ছে",
     statusFailed: "ব্যর্থ",
   },
+  labelPrint: {
+    printerMode: "প্রিন্টার মোড",
+    niimbotDirect: "NIIMBOT সরাসরি (RFID রোল)",
+    devicePrinter: "ডিভাইস প্রিন্টার (যেকোনো রোল)",
+    rfidFallbackTitle: "এই রোলে RFID নেই। ডিভাইস প্রিন্টার মোডে প্রিন্ট করবেন?",
+    rfidErrorDesc:
+      "প্রিন্টার এই রোলটি গ্রহণ করেনি। অরিজিনাল RFID রোল ব্যবহার করুন অথবা ডিভাইস প্রিন্টার মোডে প্রিন্ট করুন।",
+    printOnDevicePrinter: "ডিভাইস প্রিন্টারে প্রিন্ট করুন",
+    rememberMode: "এই মোডটি মনে রাখুন",
+    cancel: "বাতিল",
+    details: "বিস্তারিত",
+    printErrorTitle: "প্রিন্ট ব্যর্থ হয়েছে",
+    ok: "ঠিক আছে",
+    noBarcode: "এই প্রোডাক্টের বারকোড নেই।",
+    bluetoothUnsupported:
+      "এই ব্রাউজারে Web Bluetooth সাপোর্ট করে না। Chrome বা Edge ব্যবহার করুন।",
+  },
+  usbPrinter: {
+    sectionTitle: "USB থার্মাল প্রিন্টার (ESC/POS)",
+    sectionDesc:
+      "CUPS ছাড়াই Chrome/Edge থেকে সরাসরি WebUSB দিয়ে রিসিট ও লেবেল প্রিন্ট করুন।",
+    connect: "প্রিন্টার সংযোগ করুন",
+    disconnect: "বিচ্ছিন্ন করুন",
+    connected: "সংযুক্ত",
+    disconnected: "বিচ্ছিন্ন",
+    testPrint: "টেস্ট প্রিন্ট",
+    calibrationPrint: "ক্যালিব্রেশন বক্স",
+    printing: "প্রিন্ট হচ্ছে...",
+    printSuccess: "সফলভাবে প্রিন্ট হয়েছে!",
+    unsupported:
+      "এই ব্রাউজারে WebUSB সাপোর্ট করে না। HTTPS-এ Chrome বা Edge ব্যবহার করুন।",
+    permissionDenied:
+      "USB প্রিন্টারের অনুমতি পাওয়া যায়নি। প্রিন্টার সিলেক্ট করে অনুমতি দিন।",
+    claimInterfaceError:
+      "প্রিন্টার ইন্টারফেস দখল করা যায়নি। macOS System Settings > Printers & Scanners থেকে প্রিন্টারটি রিমুভ করুন, কেবল খুলে আবার লাগান এবং অন্য ট্যাব বা অ্যাপ বন্ধ করুন।",
+    deviceDisconnected:
+      "প্রিন্টার সংযোগ বিচ্ছিন্ন হয়েছে। কেবল পরীক্ষা করে আবার সংযোগ দিন।",
+    paperWidth: "পেপার প্রস্থ",
+    density: "প্রিন্ট ঘনত্ব",
+    labelWidthMm: "লেবেল প্রস্থ (mm)",
+    labelHeightMm: "লেবেল উচ্চতা (mm)",
+    receiptFeedLines: "রিসিট শেষে বাড়তি ফিড (লাইন)",
+    labelFeedMm: "প্রতি লেবেলের পর ফিড (mm)",
+    defaultCopies: "ডিফল্ট কপি",
+    useSystemPrintFallback: "সিস্টেম প্রিন্ট ব্যবহার করুন (ফলব্যাক)",
+  },
 };

@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useRef, useCallback, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Barcode from "react-barcode";
+import { useTranslation } from "@/lib/i18n";
+import { Z_INDEX } from "@/lib/z-index";
 
 // We import types statically because TypeScript strips them at build time, avoiding SSR execution.
 import type { NiimbotAbstractClient } from "@mmote/niimbluelib";
@@ -25,12 +28,38 @@ type PrintStatus = {
 let globalClient: NiimbotAbstractClient | null = null;
 let globalConnected = false;
 
+const PRINTER_MODE_STORAGE_KEY = "rizq_label_printer_mode";
+const PRINTER_MODE_EVENT = "rizq-label-printer-mode-change";
+
+type LabelPrinterMode = "device" | "bluetooth";
+
+function readSavedPrinterMode(): LabelPrinterMode {
+  if (typeof window === "undefined") return "device";
+  try {
+    const saved = localStorage.getItem(PRINTER_MODE_STORAGE_KEY);
+    return saved === "bluetooth" ? "bluetooth" : "device";
+  } catch {
+    return "device";
+  }
+}
+
+function savePrinterMode(mode: LabelPrinterMode) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(PRINTER_MODE_STORAGE_KEY, mode);
+    window.dispatchEvent(new CustomEvent(PRINTER_MODE_EVENT, { detail: mode }));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export default function NiimbotLabelPrint({
   productName,
   productPrice,
   barcodeValue,
   children,
 }: NiimbotLabelPrintProps) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const barcodeContainerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<PrintStatus>({
@@ -145,8 +174,39 @@ export default function NiimbotLabelPrint({
   }, [drawLabel]);
 
   const [showModal, setShowModal] = useState(false);
-  const [printerMode, setPrinterMode] = useState<"bluetooth" | "device">("bluetooth");
+  const [printerMode, setPrinterMode] = useState<LabelPrinterMode>(() =>
+    readSavedPrinterMode()
+  );
   const [printQtyInput, setPrintQtyInput] = useState("1");
+  const [portalMounted, setPortalMounted] = useState(false);
+  const [rememberMode, setRememberMode] = useState(true);
+  const [printDialogError, setPrintDialogError] = useState<{
+    isRfidError: boolean;
+    isUsbFallbackAvailable?: boolean;
+    message: string;
+    rawError?: string;
+    qty: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const mountTimer = setTimeout(() => setPortalMounted(true), 0);
+    const onModeSync = (e: Event) => {
+      const next = (e as CustomEvent<LabelPrinterMode>).detail;
+      if (next === "device" || next === "bluetooth") {
+        setPrinterMode(next);
+      }
+    };
+    window.addEventListener(PRINTER_MODE_EVENT, onModeSync);
+    return () => {
+      clearTimeout(mountTimer);
+      window.removeEventListener(PRINTER_MODE_EVENT, onModeSync);
+    };
+  }, []);
+
+  const handleSelectPrinterMode = (mode: LabelPrinterMode) => {
+    setPrinterMode(mode);
+    savePrinterMode(mode);
+  };
   const printQty = Math.max(1, parseInt(printQtyInput, 10) || 1);
   const setPrintQty = (val: number | ((prev: number) => number)) => {
     setPrintQtyInput((prevStr) => {
@@ -157,17 +217,25 @@ export default function NiimbotLabelPrint({
   };
 
   const executePrint = useCallback(async (quantityToPrint: number = 1) => {
+    const count = Math.max(1, Math.min(1000, quantityToPrint));
+
     if (!barcodeValue) {
-      alert("This product does not have a barcode.");
+      setPrintDialogError({
+        isRfidError: false,
+        message: t("labelPrint.noBarcode"),
+        qty: count,
+      });
       return;
     }
 
     if (!navigator.bluetooth) {
-      alert("Web Bluetooth is not supported in this browser. Please use Chrome or Edge.");
+      setPrintDialogError({
+        isRfidError: false,
+        message: t("labelPrint.bluetoothUnsupported"),
+        qty: count,
+      });
       return;
     }
-
-    const count = Math.max(1, Math.min(1000, quantityToPrint));
 
     try {
       const { NiimbotBluetoothClient } = await import("@mmote/niimbluelib/dist/cjs/client/bluetooth_impl");
@@ -233,10 +301,11 @@ export default function NiimbotLabelPrint({
         globalClient = null;
       }
 
-      const friendlyMsg =
-        errorMsg.includes("WriteRfidFail") || errorMsg.includes("error 20")
-          ? "NIIMBOT firmware rejected the non-RFID roll (WriteRfidFail). Use an official NIIMBOT RFID roll (or place a NIIMBOT RFID sticker/core in the tray), or choose 'Device Printer'."
-          : `Print failed: ${errorMsg}`;
+      const isRfidError =
+        errorMsg.includes("WriteRfidFail") || errorMsg.includes("error 20");
+      const friendlyMsg = isRfidError
+        ? t("labelPrint.rfidErrorDesc")
+        : errorMsg;
 
       setStatus({
         isConnecting: false,
@@ -245,18 +314,66 @@ export default function NiimbotLabelPrint({
         connected: globalConnected,
       });
 
-      alert(friendlyMsg);
+      setRememberMode(true);
+      setPrintDialogError({
+        isRfidError,
+        message: friendlyMsg,
+        rawError: errorMsg,
+        qty: count,
+      });
     }
-  }, [barcodeValue, drawLabel]);
+  }, [barcodeValue, drawLabel, t]);
 
   const executeDevicePrint = useCallback(
-    async (quantityToPrint: number = 1) => {
+    async (quantityToPrint: number = 1, forceSystemPrint = false) => {
+      const count = Math.max(1, Math.min(1000, quantityToPrint));
       if (!barcodeValue) {
-        alert("This product does not have a barcode.");
+        setPrintDialogError({
+          isRfidError: false,
+          message: t("labelPrint.noBarcode"),
+          qty: count,
+        });
         return;
       }
 
-      const count = Math.max(1, Math.min(1000, quantityToPrint));
+      if (!forceSystemPrint) {
+        try {
+          const printer = await import("@/lib/printer");
+          if (printer.isWebUsbSupported()) {
+            const st = printer.getStatus();
+            if (!st.connected) {
+              const reconnected = await printer.autoReconnectPrinter();
+              if (!reconnected) {
+                await printer.connectPrinter();
+              }
+            }
+            setStatus((s) => ({ ...s, isPrinting: true, error: null }));
+            await printer.printLabel(
+              {
+                productName,
+                price: productPrice,
+                barcode: effectiveBarcode,
+              },
+              count
+            );
+            setStatus((s) => ({ ...s, isPrinting: false }));
+            return;
+          }
+        } catch (usbErr: unknown) {
+          setStatus((s) => ({ ...s, isPrinting: false }));
+          const msg =
+            usbErr instanceof Error
+              ? usbErr.message
+              : t("usbPrinter.deviceDisconnected");
+          setPrintDialogError({
+            isRfidError: false,
+            isUsbFallbackAvailable: true,
+            message: msg,
+            qty: count,
+          });
+          return;
+        }
+      }
 
       try {
         setStatus((s) => ({ ...s, isPrinting: true, error: null }));
@@ -343,10 +460,15 @@ export default function NiimbotLabelPrint({
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : "Device print failed";
         setStatus((s) => ({ ...s, isPrinting: false, error: errorMsg }));
-        alert(`Print failed: ${errorMsg}`);
+        setPrintDialogError({
+          isRfidError: false,
+          message: t("labelPrint.printErrorTitle"),
+          rawError: errorMsg,
+          qty: count,
+        });
       }
     },
-    [barcodeValue, drawLabel, productName]
+    [barcodeValue, drawLabel, productName, t]
   );
 
   const handleOpenPrintModal = useCallback(() => {
@@ -425,40 +547,41 @@ export default function NiimbotLabelPrint({
               ))}
             </div>
 
-            {/* Printer Option Selector (Bluetooth default vs Device-added printer) */}
-            <div className="w-full mb-5">
+            {/* Printer Mode Selector (persisted in localStorage, defaults to Device Printer) */}
+            <div
+              className="w-full mb-5"
+              style={{
+                fontFamily:
+                  "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+              }}
+            >
               <label className="block text-xs font-semibold text-gray-600 mb-2 text-center">
-                Select Printer
+                {t("labelPrint.printerMode")}
               </label>
               <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl border border-gray-200">
                 <button
                   type="button"
-                  onClick={() => setPrinterMode("bluetooth")}
-                  className={`min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
-                    printerMode === "bluetooth"
-                      ? "bg-black text-white shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Bluetooth (Default)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPrinterMode("device")}
-                  className={`min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
+                  onClick={() => handleSelectPrinterMode("device")}
+                  className={`min-h-[44px] px-2.5 py-2 rounded-lg text-[11px] font-bold transition-colors leading-tight ${
                     printerMode === "device"
                       ? "bg-black text-white shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  Device Printer
+                  {t("labelPrint.devicePrinter")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPrinterMode("bluetooth")}
+                  className={`min-h-[44px] px-2.5 py-2 rounded-lg text-[11px] font-bold transition-colors leading-tight ${
+                    printerMode === "bluetooth"
+                      ? "bg-black text-white shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {t("labelPrint.niimbotDirect")}
                 </button>
               </div>
-              <p className="text-[11px] text-gray-400 text-center mt-1.5">
-                {printerMode === "bluetooth"
-                  ? "Direct print to NIIMBOT Bluetooth label printer"
-                  : "Print using any printer added to your device"}
-              </p>
             </div>
 
             <div className="flex space-x-2 w-full">
@@ -520,6 +643,119 @@ export default function NiimbotLabelPrint({
           )}
         </div>
       </div>
+
+      {/* Top-level Portal Error / RFID Fallback Dialog (never blurred, replaces alert()) */}
+      {portalMounted &&
+        printDialogError &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setPrintDialogError(null)}
+            style={{
+              zIndex: Z_INDEX.toast,
+              fontFamily:
+                "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+            }}
+            className="fixed inset-0 flex items-center justify-center bg-black/55 p-4"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-200 p-5 space-y-4"
+            >
+              <h3 className="text-base font-extrabold text-gray-900 leading-snug">
+                {printDialogError.isRfidError
+                  ? t("labelPrint.rfidFallbackTitle")
+                  : t("labelPrint.printErrorTitle")}
+              </h3>
+
+              <p className="text-xs font-medium text-gray-600 leading-relaxed">
+                {printDialogError.message}
+              </p>
+
+              {printDialogError.isRfidError && (
+                <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 border border-gray-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMode}
+                    onChange={(e) => setRememberMode(e.target.checked)}
+                    className="w-4 h-4 accent-black rounded"
+                  />
+                  <span className="text-xs font-bold text-gray-800">
+                    {t("labelPrint.rememberMode")}
+                  </span>
+                </label>
+              )}
+
+              {printDialogError.rawError && (
+                <details className="text-xs bg-gray-50 rounded-xl border border-gray-200 px-3 py-2">
+                  <summary className="font-bold text-gray-600 cursor-pointer select-none">
+                    {t("labelPrint.details")}
+                  </summary>
+                  <p className="mt-1.5 font-mono text-[11px] text-red-700 break-words">
+                    {printDialogError.rawError}
+                  </p>
+                </details>
+              )}
+
+              {printDialogError.isRfidError ? (
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setPrintDialogError(null)}
+                    className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                  >
+                    {t("labelPrint.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const qtyToRetry = printDialogError.qty;
+                      if (rememberMode) {
+                        handleSelectPrinterMode("device");
+                      }
+                      setPrintDialogError(null);
+                      void executeDevicePrint(qtyToRetry);
+                    }}
+                    className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:bg-gray-800"
+                  >
+                    {t("labelPrint.printOnDevicePrinter")}
+                  </button>
+                </div>
+              ) : printDialogError.isUsbFallbackAvailable ? (
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setPrintDialogError(null)}
+                    className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                  >
+                    {t("labelPrint.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const qty = printDialogError.qty;
+                      setPrintDialogError(null);
+                      void executeDevicePrint(qty, true);
+                    }}
+                    className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:bg-gray-800"
+                  >
+                    {t("usbPrinter.useSystemPrintFallback")}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPrintDialogError(null)}
+                  className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:bg-gray-800"
+                >
+                  {t("labelPrint.ok")}
+                </button>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }
