@@ -25,11 +25,11 @@ export function buildLabelCanvas(
   widthDots: number,
   heightDots: number
 ): HTMLCanvasElement {
-  // Match the exact 50x20mm (384x160 dots) NIIMBOT label style & layout
+  // Tuned for 50x15mm (384x120 dots) default label; scales proportionally for other sizes
   const W = Math.max(160, Math.ceil(widthDots / 8) * 8);
-  const H = Math.max(96, Math.round(heightDots));
+  const H = Math.max(80, Math.round(heightDots));
   const scaleX = W / 384;
-  const scaleY = H / 160;
+  const scaleY = H / 120;
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -45,14 +45,14 @@ export function buildLabelCanvas(
   // 1. Top Center: Brand Name "RIZQ"
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `italic 900 ${Math.round(22 * scaleY)}px 'Arial Black', Impact, sans-serif`;
-  ctx.fillText("RIZQ", W / 2, Math.round(6 * scaleY));
+  ctx.font = `italic 900 ${Math.max(14, Math.round(18 * scaleY))}px 'Arial Black', Impact, sans-serif`;
+  ctx.fillText("RIZQ", W / 2, Math.round(2 * scaleY));
 
   // 2. Middle Row: Product Name (left) & Price (right)
-  const rowY = Math.round(31 * scaleY);
-  const sidePad = Math.round(24 * scaleX);
+  const rowY = Math.round(22 * scaleY);
+  const sidePad = Math.round(20 * scaleX);
   ctx.textAlign = "left";
-  ctx.font = `bold ${Math.round(13 * scaleY)}px ${BENGALI_FONT_STACK}`;
+  ctx.font = `bold ${Math.max(11, Math.round(12 * scaleY))}px ${BENGALI_FONT_STACK}`;
   const maxTextWidth = W * 0.56;
   const words = data.productName.split(" ");
   let lines: string[] = [];
@@ -70,7 +70,7 @@ export function buildLabelCanvas(
   if (currentLine) lines.push(currentLine);
   lines = lines.slice(0, 2);
 
-  const lineHeight = Math.round(14 * scaleY);
+  const lineHeight = Math.round(13 * scaleY);
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(
       lines[i],
@@ -81,7 +81,7 @@ export function buildLabelCanvas(
   }
 
   ctx.textAlign = "right";
-  ctx.font = `bold ${Math.round(16 * scaleY)}px Arial, Helvetica, sans-serif`;
+  ctx.font = `bold ${Math.max(12, Math.round(14 * scaleY))}px Arial, Helvetica, sans-serif`;
   ctx.fillText(
     `TK ${data.price.toFixed(2)}`,
     W - sidePad,
@@ -94,11 +94,11 @@ export function buildLabelCanvas(
       ? data.barcode.padStart(8, "0")
       : data.barcode || "00000000";
 
-  const barcodeY = Math.round((lines.length > 1 ? 61 : 49) * scaleY);
-  const targetW = Math.round(230 * scaleX);
+  const barcodeY = Math.round((lines.length > 1 ? 49 : 37) * scaleY);
+  const targetW = Math.round(240 * scaleX);
   const targetH = Math.max(
-    Math.round(40 * scaleY),
-    H - barcodeY - Math.round(8 * scaleY)
+    Math.round(36 * scaleY),
+    H - barcodeY - Math.round(4 * scaleY)
   );
   const barcodeX = Math.round((W - targetW) / 2);
 
