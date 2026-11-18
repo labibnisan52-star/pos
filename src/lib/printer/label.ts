@@ -25,11 +25,14 @@ export function buildLabelCanvas(
   widthDots: number,
   heightDots: number
 ): HTMLCanvasElement {
-  // Tuned for 50x15mm (384x120 dots) default label; scales proportionally for other sizes
+  // Tuned for 50x15mm (384x120 dots) compact content; if canvas H > 120 (e.g. 27mm pitch),
+  // keep printed content at 15mm (120 dots) so it stays compact and centered on the sticker.
   const W = Math.max(160, Math.ceil(widthDots / 8) * 8);
   const H = Math.max(80, Math.round(heightDots));
+  const contentH = Math.min(H, 120);
+  const topOffset = H > contentH ? Math.round((H - contentH) * 0.35) : 0;
   const scaleX = W / 384;
-  const scaleY = H / 120;
+  const scaleY = contentH / 120;
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -46,10 +49,10 @@ export function buildLabelCanvas(
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.font = `italic 900 ${Math.max(14, Math.round(18 * scaleY))}px 'Arial Black', Impact, sans-serif`;
-  ctx.fillText("RIZQ", W / 2, Math.round(2 * scaleY));
+  ctx.fillText("RIZQ", W / 2, topOffset + Math.round(2 * scaleY));
 
   // 2. Middle Row: Product Name (left) & Price (right)
-  const rowY = Math.round(22 * scaleY);
+  const rowY = topOffset + Math.round(22 * scaleY);
   const sidePad = Math.round(20 * scaleX);
   ctx.textAlign = "left";
   ctx.font = `bold ${Math.max(11, Math.round(12 * scaleY))}px ${BENGALI_FONT_STACK}`;
@@ -94,11 +97,11 @@ export function buildLabelCanvas(
       ? data.barcode.padStart(8, "0")
       : data.barcode || "00000000";
 
-  const barcodeY = Math.round((lines.length > 1 ? 49 : 37) * scaleY);
+  const barcodeY = topOffset + Math.round((lines.length > 1 ? 49 : 37) * scaleY);
   const targetW = Math.round(240 * scaleX);
   const targetH = Math.max(
     Math.round(36 * scaleY),
-    H - barcodeY - Math.round(4 * scaleY)
+    topOffset + contentH - barcodeY - Math.round(4 * scaleY)
   );
   const barcodeX = Math.round((W - targetW) / 2);
 
