@@ -54,13 +54,12 @@ export class EscPosEncoder {
   }
 
   /**
-   * ESC 7 n1 n2 n3 — Heating time / print density (supported on many 58mm ESC/POS printers).
-   * Safe fallback: ignored by printers that do not implement ESC 7.
+   * Print density hook.
+   * Note: Model 587CII (Artery ESC/POS) does not support ESC 7 n1 n2 n3 and prints
+   * trailing parameter bytes as stray GBK Chinese glyphs, so this is a safe no-op.
    */
   density(level: number): this {
-    const clamped = Math.max(0, Math.min(15, Math.round(level)));
-    const heatTime = 60 + clamped * 10; // 60..210 (units of 10us)
-    this.chunks.push(0x1b, 0x37, 7, Math.min(255, heatTime), 2);
+    void level;
     return this;
   }
 
