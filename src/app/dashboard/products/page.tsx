@@ -28,6 +28,11 @@ import {
   generateMissingProductEmbeddings,
   type BatchEmbeddingProgress,
 } from "@/lib/visual-search/generate";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useDataLoadState,
+  SlowLoadingNotice,
+} from "@/components/ui/data-loader";
 
 type Product = {
   id: string;
@@ -52,6 +57,7 @@ export default function InventoryPage() {
   const supabase = useMemo(() => createClient(), []);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton, isSlow } = useDataLoadState(loading);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [stockEditProduct, setStockEditProduct] = useState<Product | null>(
@@ -372,10 +378,25 @@ export default function InventoryPage() {
         </div>
 
         {/* Empty / Loading / Responsive Lists */}
-        {loading ? (
-          <div className="py-16 flex flex-col items-center justify-center text-gray-400 gap-2">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm font-medium">Loading inventory...</span>
+        {showSkeleton ? (
+          <div className="p-4 sm:p-5 space-y-3">
+            {isSlow && <SlowLoadingNotice onRetry={fetchProducts} />}
+            <div className="space-y-2.5">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-white"
+                >
+                  <Skeleton className="w-11 h-11 rounded-xl shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-48 max-w-full rounded-md" />
+                    <Skeleton className="h-3 w-28 rounded-md bg-gray-200/60" />
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-9 w-24 rounded-lg hidden sm:block" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : products.length === 0 ? (
           <div className="py-16 px-6 text-center flex flex-col items-center justify-center">

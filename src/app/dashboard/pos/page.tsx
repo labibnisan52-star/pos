@@ -36,6 +36,11 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import { getVisualSearchDB } from "@/lib/visual-search/db";
 import { searchCachedProductsOffline } from "@/lib/visual-search/sync";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useDataLoadState,
+  SlowLoadingNotice,
+} from "@/components/ui/data-loader";
 import {
   calculateCartTotals,
   calculateLineTotal,
@@ -48,6 +53,7 @@ import {
   validateSaleInput,
 } from "@/lib/calculations";
 import ReceiptModal, { ReceiptOrderData } from "@/components/ReceiptModal";
+import ScanMiniCartSheet from "@/components/pos/ScanMiniCartSheet";
 
 const BarcodeScanner = dynamic(() => import("@/components/BarcodeScanner"), {
   ssr: false,
@@ -904,6 +910,7 @@ export default function POSPage() {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showSkeleton, isSlow } = useDataLoadState(loading);
 
   // Variant picker modal state (for products with sizes/colors/options)
   const [variantPickerProduct, setVariantPickerProduct] =
@@ -925,6 +932,7 @@ export default function POSPage() {
     cartKey: string;
     nonce: number;
   } | null>(null);
+  const [recentCartKeys, setRecentCartKeys] = useState<string[]>([]);
 
   // Completed Receipt Modal state
   const [completedReceipt, setCompletedReceipt] =
@@ -1315,6 +1323,10 @@ export default function POSPage() {
 
         const existing = prev.find((it) => it.cartKey === cartKey);
         setLastAddedItem({ cartKey, nonce: Date.now() });
+        setRecentCartKeys((keys) => [
+          cartKey,
+          ...keys.filter((k) => k !== cartKey),
+        ]);
         if (existing) {
           return prev.map((it) =>
             it.cartKey === cartKey ? { ...it, quantity: it.quantity + 1 } : it
@@ -1526,7 +1538,7 @@ export default function POSPage() {
 
       addResolvedItemToCart(match.product, match.variant);
       if (typeof navigator !== "undefined" && navigator.vibrate) {
-        navigator.vibrate(150);
+        navigator.vibrate(30);
       }
       setSearchQuery("");
 
@@ -1846,10 +1858,24 @@ export default function POSPage() {
 
         {/* Product Grid / Empty States */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 pt-1 pb-28 md:pb-4">
-          {loading ? (
-            <div className="h-64 flex flex-col items-center justify-center text-gray-400 gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-600" />
-              <p className="text-sm font-medium">Loading inventory...</p>
+          {showSkeleton && products.length === 0 ? (
+            <div className="space-y-3">
+              {isSlow && <SlowLoadingNotice onRetry={fetchCatalog} />}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {Array.from({ length: 8 }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-white p-3 rounded-2xl border border-gray-100 space-y-2.5"
+                  >
+                    <Skeleton className="aspect-square w-full rounded-xl" />
+                    <Skeleton className="h-4 w-3/4 rounded-md" />
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-14 rounded-md" />
+                      <Skeleton className="h-5 w-12 rounded-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : products.length === 0 ? (
             <div className="h-full min-h-[280px] bg-white rounded-3xl border border-dashed border-gray-200 p-8 flex flex-col items-center justify-center text-center">
@@ -2134,6 +2160,9 @@ export default function POSPage() {
                         if (scanFromCamera) {
                           setScanFromCamera(false);
                           playBeep("success");
+                          if (typeof navigator !== "undefined" && navigator.vibrate) {
+                            navigator.vibrate(30);
+                          }
                           setCameraScanPrompt({
                             status: "added",
                             productName: prodName,
@@ -2166,113 +2195,31 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Post-Camera-Scan Prompt: Ask if cashier wants to scan more products */}
+      {/* Post-Camera-Scan Mini Cart Bottom Sheet */}
       {cameraScanPrompt && (
-        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4">
-          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl p-5 sm:p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                    cameraScanPrompt.status === "added"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-red-100 text-red-600"
-                  }`}
-                >
-                  {cameraScanPrompt.status === "added" ? (
-                    <Check className="w-6 h-6 stroke-[2.5]" />
-                  ) : (
-                    <AlertCircle className="w-6 h-6" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                    {cameraScanPrompt.status === "added"
-                      ? "Added to Cart"
-                      : "Scan Notice"}
-                  </p>
-                  {cameraScanPrompt.status === "added" ? (
-                    <>
-                      <h3 className="text-base font-extrabold text-gray-900 truncate">
-                        {cameraScanPrompt.productName}
-                      </h3>
-                      <p className="text-xs font-semibold text-gray-500">
-                        {cameraScanPrompt.variantLabel
-                          ? `${cameraScanPrompt.variantLabel} • `
-                          : ""}
-                        ৳{formatBDT(cameraScanPrompt.price || 0)}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm font-bold text-red-600">
-                      {cameraScanPrompt.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCameraScanPrompt(null)}
-                aria-label="Close prompt"
-                className="min-w-[44px] min-h-[44px] rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Live Cart Summary */}
-            <div className="p-3.5 rounded-2xl bg-[#f3f0ea] flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-600">
-                Cart ({totals.itemCount}{" "}
-                {totals.itemCount === 1 ? "item" : "items"})
-              </span>
-              <span className="text-base font-black text-gray-900">
-                ৳{formatBDT(totals.grandTotal)}
-              </span>
-            </div>
-
-            <div
-              className="space-y-3"
-              style={{
-                fontFamily:
-                  "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
-              }}
-            >
-              <p className="text-base font-extrabold text-gray-900 text-center leading-snug">
-                আরও প্রোডাক্ট অ্যাড করতে চান?
-              </p>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCameraScanPrompt(null);
-                    setIsScannerOpen(true);
-                  }}
-                  className="w-full min-h-[54px] py-3 px-4 bg-black hover:bg-gray-800 active:scale-[0.98] text-white rounded-2xl text-base font-extrabold flex items-center justify-center gap-2 shadow-md transition-all"
-                >
-                  <QrCode className="w-5 h-5" />
-                  <span>হ্যাঁ</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCameraScanPrompt(null);
-                    setIsScannerOpen(false);
-                    if (typeof window !== "undefined" && window.innerWidth < 768) {
-                      setMobileCartOpen(true);
-                    }
-                  }}
-                  className="w-full min-h-[54px] py-3 px-4 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-900 rounded-2xl text-base font-extrabold flex items-center justify-center gap-2 transition-all"
-                >
-                  <ShoppingBag className="w-5 h-5" />
-                  <span>না</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ScanMiniCartSheet
+          prompt={cameraScanPrompt}
+          cart={cart}
+          recentCartKeys={recentCartKeys}
+          lastAddedItem={lastAddedItem}
+          productStockMap={productStockMap}
+          itemCount={totals.itemCount}
+          grandTotal={totals.grandTotal}
+          onUpdateQuantityDelta={handleUpdateQuantityDelta}
+          onRemoveItem={handleRemoveItem}
+          onClose={() => setCameraScanPrompt(null)}
+          onScanMore={() => {
+            setCameraScanPrompt(null);
+            setIsScannerOpen(true);
+          }}
+          onGoToCheckout={() => {
+            setCameraScanPrompt(null);
+            setIsScannerOpen(false);
+            if (typeof window !== "undefined" && window.innerWidth < 768) {
+              setMobileCartOpen(true);
+            }
+          }}
+        />
       )}
 
       {/* Camera Barcode Scanner */}

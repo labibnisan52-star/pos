@@ -5,7 +5,7 @@ const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
   register: true,
-  cacheOnFrontEndNav: false,
+  cacheOnFrontEndNav: true,
   publicExcludes: ["!models/**/*"],
   workboxOptions: {
     skipWaiting: true,
@@ -40,7 +40,7 @@ const withPWA = withPWAInit({
         handler: "NetworkFirst",
         options: {
           cacheName: "pages-navigate",
-          networkTimeoutSeconds: 5,
+          networkTimeoutSeconds: 3,
           expiration: {
             maxEntries: 32,
             maxAgeSeconds: 24 * 60 * 60,
@@ -56,7 +56,7 @@ const withPWA = withPWAInit({
         handler: "NetworkFirst",
         options: {
           cacheName: "pages-rsc",
-          networkTimeoutSeconds: 5,
+          networkTimeoutSeconds: 3,
           expiration: {
             maxEntries: 32,
             maxAgeSeconds: 24 * 60 * 60,

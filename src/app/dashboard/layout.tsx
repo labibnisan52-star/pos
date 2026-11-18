@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -21,11 +21,32 @@ import {
   Globe,
   Coins,
   MessageSquarePlus,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
 import { loadStoreSettings } from "@/components/ReceiptModal";
 import VisualSearchSyncBoot from "@/components/VisualSearchSyncBoot";
+import { TablePageSkeleton } from "@/components/ui/skeleton";
+import { OfflineStatusBanner } from "@/components/ui/data-loader";
+
+function NavLinkSpinner({
+  forcePending = false,
+  className = "",
+}: {
+  forcePending?: boolean;
+  className?: string;
+}) {
+  const { pending } = useLinkStatus();
+  const isPending = pending || forcePending;
+  if (!isPending) return null;
+  return (
+    <Loader2
+      aria-hidden="true"
+      className={`w-3.5 h-3.5 animate-spin shrink-0 ${className}`}
+    />
+  );
+}
 
 export default function DashboardLayout({
   children,
@@ -36,10 +57,25 @@ export default function DashboardLayout({
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(() =>
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
   const [shopLogo, setShopLogo] = useState("");
   const [shopName, setShopName] = useState("RIZQ");
   const supabase = createClient();
   const { user, role, loading } = useAuth();
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Require authentication for all dashboard routes
   useEffect(() => {
@@ -50,14 +86,21 @@ export default function DashboardLayout({
 
   // Load store settings (including logo)
   useEffect(() => {
-    const s = loadStoreSettings();
-    if (s.logoUrl) setShopLogo(s.logoUrl);
-    if (s.shopName) setShopName(s.shopName);
+    const t = setTimeout(() => {
+      const s = loadStoreSettings();
+      if (s.logoUrl) setShopLogo(s.logoUrl);
+      if (s.shopName) setShopName(s.shopName);
+    }, 0);
+    return () => clearTimeout(t);
   }, [pathname]);
 
-  // Close mobile drawer on route change
+  // Close mobile drawer & clear pending nav state on route change
   useEffect(() => {
-    setMobileMenuOpen(false);
+    const t = setTimeout(() => {
+      setMobileMenuOpen(false);
+      setPendingHref(null);
+    }, 0);
+    return () => clearTimeout(t);
   }, [pathname]);
 
   const handleLogout = async () => {
@@ -117,7 +160,16 @@ export default function DashboardLayout({
       pathname.startsWith("/dashboard/investors"));
 
   if (loading || !user) {
-    return <div className="h-dvh bg-white" />;
+    return (
+      <div className="flex flex-col md:flex-row h-dvh bg-gray-50 overflow-hidden">
+        <div className="md:hidden h-14 px-3 bg-white border-b border-gray-200 flex items-center justify-between shrink-0">
+          <div className="h-5 w-24 rounded-lg bg-gray-200/80 animate-pulse" />
+          <div className="h-9 w-16 rounded-xl bg-gray-200/80 animate-pulse" />
+        </div>
+        <div className="hidden md:flex w-20 bg-white border-r border-gray-200 shrink-0" />
+        <TablePageSkeleton statCount={4} rows={5} />
+      </div>
+    );
   }
 
   return (
@@ -148,14 +200,21 @@ export default function DashboardLayout({
 
         <Link
           href="/dashboard/pos"
-          className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
+          prefetch
+          onClick={() => {
+            if (pathname !== "/dashboard/pos") setPendingHref("/dashboard/pos");
+          }}
+          className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all ${
             pathname === "/dashboard/pos"
               ? "bg-[#f3f0ea] text-gray-900"
+              : pendingHref === "/dashboard/pos"
+              ? "bg-gray-800 text-white opacity-90"
               : "bg-black text-white"
           }`}
         >
           <Store className="w-3.5 h-3.5" />
           <span>POS</span>
+          <NavLinkSpinner forcePending={pendingHref === "/dashboard/pos"} />
         </Link>
       </header>
 
@@ -203,25 +262,35 @@ export default function DashboardLayout({
                     (pathname.startsWith(item.href) &&
                       item.href !== "/dashboard");
                   const Icon = item.icon;
+                  const isPending = pendingHref === item.href;
                   return (
                     <Link
                       key={item.name}
                       href={item.href}
+                      prefetch={!item.external}
                       target={item.external ? "_blank" : undefined}
                       rel={item.external ? "noopener noreferrer" : undefined}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`min-h-[48px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (!item.external && pathname !== item.href) {
+                          setPendingHref(item.href);
+                        }
+                      }}
+                      className={`min-h-[48px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold active:scale-95 transition-all ${
                         isActive
                           ? "bg-[#f3f0ea] text-gray-900"
+                          : isPending
+                          ? "bg-gray-100 text-gray-900 animate-pulse"
                           : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                       }`}
                     >
                       <Icon
                         className={`w-5 h-5 shrink-0 ${
-                          isActive ? "text-gray-900" : "text-gray-400"
+                          isActive || isPending ? "text-gray-900" : "text-gray-400"
                         }`}
                       />
-                      <span>{item.name}</span>
+                      <span className="flex-1">{item.name}</span>
+                      <NavLinkSpinner forcePending={isPending} className="text-gray-600" />
                     </Link>
                   );
                 })}
@@ -306,29 +375,39 @@ export default function DashboardLayout({
                 pathname === item.href ||
                 (pathname.startsWith(item.href) && item.href !== "/dashboard");
               const Icon = item.icon;
+              const isPending = pendingHref === item.href;
               return (
                 <Link
                   key={item.name}
                   href={item.href}
+                  prefetch={!item.external}
                   target={item.external ? "_blank" : undefined}
                   rel={item.external ? "noopener noreferrer" : undefined}
                   title={!isExpanded ? item.name : undefined}
-                  className={`min-h-[44px] flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                  onClick={() => {
+                    if (!item.external && pathname !== item.href) {
+                      setPendingHref(item.href);
+                    }
+                  }}
+                  className={`min-h-[44px] flex items-center gap-3 px-3 py-2.5 rounded-xl active:scale-95 transition-all ${
                     isActive
                       ? "bg-[#f3f0ea] text-gray-900"
+                      : isPending
+                      ? "bg-gray-100 text-gray-900 animate-pulse"
                       : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                   } ${!isExpanded ? "justify-center" : ""}`}
                 >
                   <Icon
                     className={`w-5 h-5 shrink-0 ${
-                      isActive ? "text-gray-900" : "text-gray-400"
+                      isActive || isPending ? "text-gray-900" : "text-gray-400"
                     }`}
                   />
                   {isExpanded && (
-                    <span className="font-semibold text-sm truncate">
+                    <span className="font-semibold text-sm truncate flex-1">
                       {item.name}
                     </span>
                   )}
+                  <NavLinkSpinner forcePending={isPending} className="text-gray-600" />
                 </Link>
               );
             })}
@@ -365,6 +444,7 @@ export default function DashboardLayout({
 
       {/* Main Content Area */}
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col bg-gray-50">
+        {isOffline && <OfflineStatusBanner />}
         {isRestrictedForSalesman ? (
           <div className="flex-1 flex items-center justify-center flex-col p-6 text-center">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
