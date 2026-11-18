@@ -48,56 +48,43 @@ export function buildLabelCanvas(
   // 1. Top Center: Brand Name "RIZQ"
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `italic 900 ${Math.max(14, Math.round(18 * scaleY))}px 'Arial Black', Impact, sans-serif`;
+  ctx.font = `italic 900 ${Math.max(13, Math.round(16 * scaleY))}px 'Arial Black', Impact, sans-serif`;
   ctx.fillText("RIZQ", W / 2, topOffset + Math.round(2 * scaleY));
 
-  // 2. Middle Row: Product Name (left) & Price (right)
-  const rowY = topOffset + Math.round(22 * scaleY);
-  const sidePad = Math.round(20 * scaleX);
-  ctx.textAlign = "left";
+  // 2. Product Name (centered, single line)
+  const maxTextWidth = W - Math.round(40 * scaleX);
   ctx.font = `bold ${Math.max(11, Math.round(12 * scaleY))}px ${BENGALI_FONT_STACK}`;
-  const maxTextWidth = W * 0.56;
-  const words = data.productName.split(" ");
-  let lines: string[] = [];
-  let currentLine = "";
-
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (ctx.measureText(testLine).width > maxTextWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-  lines = lines.slice(0, 2);
-
-  const lineHeight = Math.round(13 * scaleY);
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(
-      lines[i],
-      sidePad,
-      rowY + i * lineHeight,
-      maxTextWidth
-    );
-  }
-
-  ctx.textAlign = "right";
-  ctx.font = `bold ${Math.max(12, Math.round(14 * scaleY))}px Arial, Helvetica, sans-serif`;
   ctx.fillText(
-    `TK ${data.price.toFixed(2)}`,
-    W - sidePad,
-    rowY
+    data.productName,
+    W / 2,
+    topOffset + Math.round(20 * scaleY),
+    maxTextWidth
   );
 
-  // 3. Bottom: Code128 Barcode with number below
+  // 3. Barcode Number (centered)
   const effectiveCode =
     data.barcode && data.barcode.length < 8
       ? data.barcode.padStart(8, "0")
       : data.barcode || "00000000";
+  ctx.font = `bold ${Math.max(11, Math.round(12 * scaleY))}px monospace`;
+  ctx.fillText(
+    effectiveCode,
+    W / 2,
+    topOffset + Math.round(35 * scaleY),
+    maxTextWidth
+  );
 
-  const barcodeY = topOffset + Math.round((lines.length > 1 ? 49 : 37) * scaleY);
+  // 4. Price (centered)
+  ctx.font = `bold ${Math.max(13, Math.round(15 * scaleY))}px Arial, Helvetica, sans-serif`;
+  ctx.fillText(
+    `TK ${data.price.toFixed(2)}`,
+    W / 2,
+    topOffset + Math.round(50 * scaleY),
+    maxTextWidth
+  );
+
+  // 5. Bottom: Code128 Barcode bars (number already printed above)
+  const barcodeY = topOffset + Math.round(68 * scaleY);
   const targetW = Math.round(240 * scaleX);
   const targetH = Math.max(
     Math.round(36 * scaleY),
@@ -110,9 +97,8 @@ export function buildLabelCanvas(
     JsBarcode(barcodeCanvas, effectiveCode, {
       format: "CODE128",
       width: 1.5,
-      height: 42,
-      displayValue: true,
-      fontSize: 12,
+      height: 44,
+      displayValue: false,
       margin: 2,
       background: "#ffffff",
       lineColor: "#000000",
@@ -120,9 +106,7 @@ export function buildLabelCanvas(
 
     ctx.drawImage(barcodeCanvas, barcodeX, barcodeY, targetW, targetH);
   } catch {
-    ctx.textAlign = "center";
-    ctx.font = "bold 14px monospace";
-    ctx.fillText(effectiveCode, W / 2, barcodeY + Math.round(14 * scaleY), W - 32);
+    // Barcode number is already rendered above
   }
 
   return canvas;
