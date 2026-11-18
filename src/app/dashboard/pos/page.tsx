@@ -171,6 +171,8 @@ interface SaleCartPanelProps {
   onClearCart: () => void;
   onCompleteSale: () => void;
   onOpenScanner: () => void;
+  onAddMore: () => void;
+  lastAddedItem?: { cartKey: string; nonce: number } | null;
   isSubmitting: boolean;
   validationErrors: string[];
   showErrors: boolean;
@@ -201,6 +203,8 @@ function SaleCartPanel({
   onClearCart,
   onCompleteSale,
   onOpenScanner,
+  onAddMore,
+  lastAddedItem,
   isSubmitting,
   validationErrors,
   showErrors,
@@ -208,6 +212,47 @@ function SaleCartPanel({
   onCloseMobileSheet,
 }: SaleCartPanelProps) {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [floatingBarHeight, setFloatingBarHeight] = useState(215);
+  const [highlightedCartKey, setHighlightedCartKey] = useState<string | null>(
+    null
+  );
+  const floatingBarRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Measure floating checkout bar height so scrollable content never hides behind it
+  useEffect(() => {
+    const el = floatingBarRef.current;
+    if (!el) return;
+    const updateHeight = () => {
+      const h = el.getBoundingClientRect().height;
+      if (h > 0) setFloatingBarHeight(Math.ceil(h));
+    };
+    updateHeight();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [paymentMethod, cart.length]);
+
+  // Briefly highlight & scroll newly added/scanned item into view
+  useEffect(() => {
+    if (!lastAddedItem?.cartKey) return;
+    const key = lastAddedItem.cartKey;
+    const highlightTimer = setTimeout(() => {
+      setHighlightedCartKey(key);
+      itemRefs.current[key]?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }, 30);
+    const clearTimer = setTimeout(() => {
+      setHighlightedCartKey((prev) => (prev === key ? null : prev));
+    }, 1250);
+    return () => {
+      clearTimeout(highlightTimer);
+      clearTimeout(clearTimer);
+    };
+  }, [lastAddedItem]);
 
   const discountValidation = validateDiscountInput(discountInput);
   const parsedDiscountNum = parseNumericInput(discountInput);
@@ -253,9 +298,9 @@ function SaleCartPanel({
       : "bg-red-100 text-red-800 border-red-200";
 
   return (
-    <div className="flex flex-col h-full bg-white overflow-hidden">
+    <div className="relative flex flex-col h-full w-full bg-white overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white z-10">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-xl bg-[#f3f0ea] flex items-center justify-center shrink-0">
             <ShoppingCart className="w-5 h-5 text-gray-800" />
@@ -299,8 +344,11 @@ function SaleCartPanel({
         </div>
       </div>
 
-      {/* Scrollable Cart + Discount + Customer + Payment Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#faf9f6]/60">
+      {/* Scrollable Cart + Discount + Payment Method + Customer Body */}
+      <div
+        className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 space-y-3.5 bg-[#faf9f6]/60"
+        style={{ paddingBottom: floatingBarHeight + 16 }}
+      >
         {cart.length === 0 ? (
           <div className="py-10 px-4 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-dashed border-gray-200">
             <div className="w-14 h-14 rounded-full bg-[#f3f0ea] flex items-center justify-center mb-3">
@@ -323,18 +371,47 @@ function SaleCartPanel({
           </div>
         ) : (
           <div className="space-y-2.5">
+            {/* Compact Sticky Action Row: Add More + Scan Barcode */}
+            <div className="sticky top-0 z-10 -mx-1 px-1 py-1.5 bg-[#faf9f6]/95 backdrop-blur-xs flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={onAddMore}
+                className="min-h-[44px] h-[42px] px-3.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-900 flex items-center gap-1.5 hover:bg-gray-50 active:scale-[0.98] transition-all shadow-2xs"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Add More</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onOpenScanner}
+                aria-label="Scan barcode"
+                title="Scan Barcode"
+                className="min-w-[44px] min-h-[44px] px-3 bg-white border border-gray-300 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold text-gray-800 hover:bg-gray-50 active:scale-[0.98] transition-all shadow-2xs"
+              >
+                <QrCode className="w-4 h-4" />
+                <span className="sr-only sm:not-sr-only">Scan</span>
+              </button>
+            </div>
+
             {cart.map((item) => {
               const availableBase = productStockMap.get(item.id) ?? 0;
               const usedBase = usedBaseStockMap.get(item.id) ?? 0;
               const overStock = usedBase > availableBase;
               const lineTotal = calculateLineTotal(item.unitPrice, item.quantity);
+              const isHighlighted = highlightedCartKey === item.cartKey;
 
               return (
                 <div
                   key={item.cartKey}
-                  className={`bg-white p-3 rounded-2xl border transition-colors ${
+                  ref={(el) => {
+                    itemRefs.current[item.cartKey] = el;
+                  }}
+                  className={`bg-white p-3 rounded-2xl border transition-all duration-500 ${
                     overStock
                       ? "border-red-300 bg-red-50/30"
+                      : isHighlighted
+                      ? "border-emerald-500 ring-2 ring-emerald-400/50 bg-emerald-50/40"
                       : "border-gray-200/80"
                   }`}
                 >
@@ -506,106 +583,43 @@ function SaleCartPanel({
           )}
         </div>
 
-        {/* Payment Method & Amount Received */}
-        <div className="bg-white p-3.5 rounded-2xl border border-gray-200/80 space-y-3">
-          <div>
-            <span className="block text-xs font-bold text-gray-700 mb-2">
-              Payment Method
-            </span>
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  { id: "Cash", icon: Banknote },
-                  { id: "Card", icon: CreditCard },
-                  { id: "Mobile", icon: Smartphone },
-                ] as const
-              ).map(({ id, icon: Icon }) => {
-                const active = paymentMethod === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setPaymentMethod(id)}
-                    className={`min-h-[48px] py-2 px-2 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all ${
-                      active
-                        ? "border-black bg-gray-900 text-white"
-                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="text-xs font-bold">{id}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-gray-700">
-                Amount Received (৳)
-              </label>
-              {totals.grandTotal > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAmountReceivedInput(totals.grandTotal.toFixed(2))
-                    }
-                    className="min-h-[32px] px-2.5 py-1 rounded-lg bg-[#f3f0ea] hover:bg-gray-200 text-xs font-bold text-gray-900 transition-colors"
-                  >
-                    Exact ৳{formatBDT(totals.grandTotal)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
+        {/* Payment Method (Amount Received is in the floating bottom bar) */}
+        <div className="bg-white p-3.5 rounded-2xl border border-gray-200/80">
+          <span className="block text-xs font-bold text-gray-700 mb-2">
+            Payment Method
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { id: "Cash", icon: Banknote },
+                { id: "Card", icon: CreditCard },
+                { id: "Mobile", icon: Smartphone },
+              ] as const
+            ).map(({ id, icon: Icon }) => {
+              const active = paymentMethod === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod(id);
+                    if (id !== "Cash") {
                       setAmountReceivedInput(
-                        (Math.round((totals.grandTotal / 2) * 100) / 100).toFixed(2)
-                      )
+                        totals.grandTotal > 0 ? totals.grandTotal.toFixed(2) : "0"
+                      );
                     }
-                    className="min-h-[32px] px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-xs font-bold text-amber-900 transition-colors"
-                  >
-                    50% Partial Due
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAmountReceivedInput("0")}
-                    className="min-h-[32px] px-2 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-xs font-bold text-red-900 transition-colors"
-                  >
-                    Full Due (৳0)
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="relative">
-              <span className="absolute inset-y-0 left-3.5 flex items-center text-sm font-bold text-gray-500 pointer-events-none">
-                ৳
-              </span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={amountReceivedInput}
-                onChange={(e) => setAmountReceivedInput(e.target.value)}
-                placeholder="0.00"
-                className="w-full min-h-[48px] pl-8 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-extrabold text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:bg-white focus:border-gray-900 transition-colors"
-              />
-            </div>
-
-            {totals.grandTotal > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {[500, 1000, 2000, 5000].map((note) => (
-                  <button
-                    key={note}
-                    type="button"
-                    onClick={() => setAmountReceivedInput(String(note))}
-                    className="min-h-[36px] px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-xs font-bold text-gray-700 transition-colors"
-                  >
-                    ৳{note}
-                  </button>
-                ))}
-              </div>
-            )}
+                  }}
+                  className={`min-h-[48px] py-2 px-2 rounded-xl border-2 flex flex-col items-center justify-center gap-1 transition-all ${
+                    active
+                      ? "border-black bg-gray-900 text-white"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-xs font-bold">{id}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -683,78 +697,6 @@ function SaleCartPanel({
           </div>
         </div>
 
-        {/* Live Totals Summary Card (NO TAX — Tax is always 0) */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs space-y-2">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600 font-medium">Subtotal</span>
-            <span className="font-bold text-gray-900">
-              ৳{formatBDT(totals.subtotal)}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600 font-medium">
-              Discount
-              {totals.discountType === "percentage" && totals.discountValue > 0
-                ? ` (${totals.discountValue}%)`
-                : ""}
-            </span>
-            <span
-              className={`font-bold ${
-                totals.discountAmount > 0 ? "text-emerald-700" : "text-gray-400"
-              }`}
-            >
-              -৳{formatBDT(totals.discountAmount)}
-            </span>
-          </div>
-
-          <div className="pt-2.5 border-t border-gray-200 flex justify-between items-baseline">
-            <span className="text-sm font-extrabold uppercase tracking-wide text-gray-900">
-              Grand Total
-            </span>
-            <span className="text-2xl font-black text-gray-900 tracking-tight">
-              ৳{formatBDT(totals.grandTotal)}
-            </span>
-          </div>
-
-          <div className="pt-2 border-t border-dashed border-gray-200 grid grid-cols-2 gap-2">
-            <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100">
-              <span className="block text-[10px] font-bold uppercase text-emerald-700">
-                Change to Return
-              </span>
-              <span className="text-base font-extrabold text-emerald-900">
-                ৳{formatBDT(totals.changeToReturn)}
-              </span>
-            </div>
-
-            <div
-              className={`p-2.5 rounded-xl border ${
-                totals.dueAmount > 0
-                  ? "bg-amber-50/80 border-amber-200"
-                  : "bg-gray-50 border-gray-200"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-gray-600">
-                  Due Amount
-                </span>
-                <span
-                  className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${statusBadgeClass}`}
-                >
-                  {totals.paymentStatus}
-                </span>
-              </div>
-              <span
-                className={`text-base font-extrabold ${
-                  totals.dueAmount > 0 ? "text-amber-900" : "text-gray-900"
-                }`}
-              >
-                ৳{formatBDT(totals.dueAmount)}
-              </span>
-            </div>
-          </div>
-        </div>
-
         {/* Inline Validation Errors */}
         {showErrors && validationErrors.length > 0 && (
           <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 space-y-1">
@@ -771,13 +713,143 @@ function SaleCartPanel({
         )}
       </div>
 
-      {/* Single Complete Sale Footer Button */}
-      <div className="p-4 bg-white border-t border-gray-200 shrink-0">
+      {/* Permanently Floating Bottom Checkout Bar */}
+      <div
+        ref={floatingBarRef}
+        className="absolute bottom-0 inset-x-0 z-20 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] rounded-t-2xl px-3.5 pt-2.5 space-y-2"
+        style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
+      >
+        {/* a. Amount Received (Cash only) */}
+        {paymentMethod === "Cash" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-1.5 flex-wrap">
+              <label className="text-[11px] font-bold text-gray-700">
+                Amount Received (৳)
+              </label>
+              {totals.grandTotal > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAmountReceivedInput(totals.grandTotal.toFixed(2))
+                    }
+                    className="px-2 py-0.5 rounded-md bg-[#f3f0ea] hover:bg-gray-200 text-[10px] font-bold text-gray-900 transition-colors"
+                  >
+                    Exact
+                  </button>
+                  {[500, 1000].map((note) => (
+                    <button
+                      key={note}
+                      type="button"
+                      onClick={() => setAmountReceivedInput(String(note))}
+                      className="px-2 py-0.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-gray-100 text-[10px] font-bold text-gray-700 transition-colors"
+                    >
+                      ৳{note}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setAmountReceivedInput("0")}
+                    className="px-2 py-0.5 rounded-md bg-red-100 hover:bg-red-200 text-[10px] font-bold text-red-900 transition-colors"
+                  >
+                    ৳0 Due
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <span className="absolute inset-y-0 left-3 flex items-center text-sm font-bold text-gray-500 pointer-events-none">
+                ৳
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amountReceivedInput}
+                onChange={(e) => setAmountReceivedInput(e.target.value)}
+                placeholder="0.00"
+                className="w-full min-h-[42px] pl-7 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-extrabold text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:bg-white focus:border-gray-900 transition-colors"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* b. Compact Summary Card */}
+        <div className="bg-[#faf9f6] px-3 py-2 rounded-xl border border-gray-200/80 space-y-1">
+          <div className="flex items-center justify-between text-[11px] text-gray-600">
+            <span>Subtotal</span>
+            <span className="font-bold text-gray-900">
+              ৳{formatBDT(totals.subtotal)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-gray-600">
+            <span>
+              Discount
+              {totals.discountType === "percentage" && totals.discountValue > 0
+                ? ` (${totals.discountValue}%)`
+                : ""}
+            </span>
+            <span
+              className={`font-bold ${
+                totals.discountAmount > 0 ? "text-emerald-700" : "text-gray-400"
+              }`}
+            >
+              -৳{formatBDT(totals.discountAmount)}
+            </span>
+          </div>
+          <div className="pt-1 border-t border-gray-200 flex items-baseline justify-between">
+            <span className="text-xs font-extrabold uppercase tracking-wide text-gray-900">
+              Grand Total
+            </span>
+            <span className="text-lg font-black text-gray-900 tracking-tight">
+              ৳{formatBDT(totals.grandTotal)}
+            </span>
+          </div>
+
+          <div className="pt-1 grid grid-cols-2 gap-1.5">
+            <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-100">
+              <span className="block text-[9px] font-bold uppercase text-emerald-700 leading-tight">
+                Change to Return
+              </span>
+              <span className="text-xs font-extrabold text-emerald-900">
+                ৳{formatBDT(totals.changeToReturn)}
+              </span>
+            </div>
+
+            <div
+              className={`px-2.5 py-1.5 rounded-lg border ${
+                totals.dueAmount > 0
+                  ? "bg-amber-50/80 border-amber-200"
+                  : "bg-white border-gray-200"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[9px] font-bold uppercase text-gray-600 leading-tight">
+                  Due Amount
+                </span>
+                <span
+                  className={`px-1 py-0.2 rounded text-[9px] font-bold border leading-tight ${statusBadgeClass}`}
+                >
+                  {totals.paymentStatus}
+                </span>
+              </div>
+              <span
+                className={`text-xs font-extrabold ${
+                  totals.dueAmount > 0 ? "text-amber-900" : "text-gray-900"
+                }`}
+              >
+                ৳{formatBDT(totals.dueAmount)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* c. Complete Sale Button */}
         <button
           type="button"
           onClick={onCompleteSale}
-          disabled={isSubmitting}
-          className="w-full min-h-[52px] py-3.5 px-5 bg-black hover:bg-gray-800 active:scale-[0.99] text-white font-extrabold text-base rounded-2xl flex items-center justify-between transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+          disabled={cart.length === 0 || isSubmitting}
+          className="w-full min-h-[48px] py-3 px-4 bg-black hover:bg-gray-800 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl flex items-center justify-between transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
         >
           <span className="flex items-center gap-2">
             {isSubmitting ? (
@@ -849,6 +921,10 @@ export default function POSPage() {
   const [customerMobile, setCustomerMobile] = useState("");
   const [showErrors, setShowErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastAddedItem, setLastAddedItem] = useState<{
+    cartKey: string;
+    nonce: number;
+  } | null>(null);
 
   // Completed Receipt Modal state
   const [completedReceipt, setCompletedReceipt] =
@@ -1142,21 +1218,32 @@ export default function POSPage() {
   ]);
 
   // Shared calculation & validation via src/lib/calculations.ts
-  const totals = useMemo(
-    () =>
-      calculateCartTotals({
-        items: cart.map((item) => ({
-          id: item.cartKey,
-          unitPrice: item.unitPrice,
-          quantity: item.quantity,
-          costPrice: item.costPrice,
-        })),
+  const totals = useMemo(() => {
+    const items = cart.map((item) => ({
+      id: item.cartKey,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      costPrice: item.costPrice,
+    }));
+    const base = calculateCartTotals({
+      items,
+      discountType,
+      discountValue: discountInput,
+      amountReceived: amountReceivedInput,
+    });
+    if (paymentMethod !== "Cash") {
+      return calculateCartTotals({
+        items,
         discountType,
         discountValue: discountInput,
-        amountReceived: amountReceivedInput,
-      }),
-    [cart, discountType, discountInput, amountReceivedInput]
-  );
+        amountReceived: String(base.grandTotal),
+      });
+    }
+    return base;
+  }, [cart, discountType, discountInput, amountReceivedInput, paymentMethod]);
+
+  const effectiveAmountReceivedRaw =
+    paymentMethod !== "Cash" ? String(totals.grandTotal) : amountReceivedInput;
 
   const saleValidation = useMemo(
     () =>
@@ -1173,7 +1260,7 @@ export default function POSPage() {
         })),
         discountType,
         discountRaw: discountInput,
-        amountReceivedRaw: amountReceivedInput,
+        amountReceivedRaw: effectiveAmountReceivedRaw,
         customerName,
         customerMobile,
       }),
@@ -1182,7 +1269,7 @@ export default function POSPage() {
       productStockMap,
       discountType,
       discountInput,
-      amountReceivedInput,
+      effectiveAmountReceivedRaw,
       customerName,
       customerMobile,
     ]
@@ -1227,6 +1314,7 @@ export default function POSPage() {
         }
 
         const existing = prev.find((it) => it.cartKey === cartKey);
+        setLastAddedItem({ cartKey, nonce: Date.now() });
         if (existing) {
           return prev.map((it) =>
             it.cartKey === cartKey ? { ...it, quantity: it.quantity + 1 } : it
@@ -1907,6 +1995,14 @@ export default function POSPage() {
           onClearCart={resetSaleForm}
           onCompleteSale={handleCompleteSale}
           onOpenScanner={() => setIsScannerOpen(true)}
+          onAddMore={() => {
+            searchInputRef.current?.focus();
+            searchInputRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "nearest",
+            });
+          }}
+          lastAddedItem={lastAddedItem}
           isSubmitting={isSubmitting}
           validationErrors={saleValidation.errors}
           showErrors={showErrors}
@@ -1972,6 +2068,13 @@ export default function POSPage() {
               setMobileCartOpen(false);
               setIsScannerOpen(true);
             }}
+            onAddMore={() => {
+              setMobileCartOpen(false);
+              setTimeout(() => {
+                searchInputRef.current?.focus();
+              }, 60);
+            }}
+            lastAddedItem={lastAddedItem}
             isSubmitting={isSubmitting}
             validationErrors={saleValidation.errors}
             showErrors={showErrors}
@@ -2128,36 +2231,45 @@ export default function POSPage() {
               </span>
             </div>
 
-            <div className="space-y-2.5">
-              <p className="text-sm font-extrabold text-gray-900 text-center">
-                Do you want to scan more products?
+            <div
+              className="space-y-3"
+              style={{
+                fontFamily:
+                  "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+              }}
+            >
+              <p className="text-base font-extrabold text-gray-900 text-center leading-snug">
+                আরও প্রোডাক্ট অ্যাড করতে চান?
               </p>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCameraScanPrompt(null);
-                  setIsScannerOpen(true);
-                }}
-                className="w-full min-h-[50px] py-3 px-4 bg-black hover:bg-gray-800 text-white rounded-2xl text-sm font-extrabold flex items-center justify-center gap-2 shadow-md transition-colors"
-              >
-                <QrCode className="w-5 h-5" />
-                <span>Yes, Scan Another Product</span>
-              </button>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraScanPrompt(null);
+                    setIsScannerOpen(true);
+                  }}
+                  className="w-full min-h-[54px] py-3 px-4 bg-black hover:bg-gray-800 active:scale-[0.98] text-white rounded-2xl text-base font-extrabold flex items-center justify-center gap-2 shadow-md transition-all"
+                >
+                  <QrCode className="w-5 h-5" />
+                  <span>হ্যাঁ</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCameraScanPrompt(null);
-                  if (typeof window !== "undefined" && window.innerWidth < 768) {
-                    setMobileCartOpen(true);
-                  }
-                }}
-                className="w-full min-h-[48px] py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                <span>No, Go to Cart &amp; Checkout</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraScanPrompt(null);
+                    setIsScannerOpen(false);
+                    if (typeof window !== "undefined" && window.innerWidth < 768) {
+                      setMobileCartOpen(true);
+                    }
+                  }}
+                  className="w-full min-h-[54px] py-3 px-4 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-900 rounded-2xl text-base font-extrabold flex items-center justify-center gap-2 transition-all"
+                >
+                  <ShoppingBag className="w-5 h-5" />
+                  <span>না</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

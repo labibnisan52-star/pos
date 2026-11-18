@@ -13,6 +13,9 @@ import {
   ExternalLink,
   Share2,
   Camera,
+  Boxes,
+  Minus,
+  X,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
@@ -51,6 +54,12 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [stockEditProduct, setStockEditProduct] = useState<Product | null>(
+    null
+  );
+  const [stockInput, setStockInput] = useState("");
+  const [savingStock, setSavingStock] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] =
     useState<BatchEmbeddingProgress | null>(null);
@@ -83,6 +92,45 @@ export default function InventoryPage() {
       await supabase.from("products").delete().eq("id", id);
       fetchProducts();
     }
+  };
+
+  const openStockModal = (product: Product) => {
+    setStockEditProduct(product);
+    setStockInput(String(product.stock ?? 0));
+    setStockError(null);
+  };
+
+  const handleSaveStock = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!stockEditProduct || savingStock) return;
+    const normalized = stockInput
+      .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
+      .trim();
+    const parsed = parseInt(normalized, 10);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      setStockError("Please enter a valid stock quantity (0 or more).");
+      return;
+    }
+
+    setSavingStock(true);
+    setStockError(null);
+    const { error } = await supabase
+      .from("products")
+      .update({ stock: parsed })
+      .eq("id", stockEditProduct.id);
+
+    setSavingStock(false);
+    if (error) {
+      setStockError(error.message || "Failed to update stock.");
+      return;
+    }
+
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === stockEditProduct.id ? { ...p, stock: parsed } : p
+      )
+    );
+    setStockEditProduct(null);
   };
 
   const handleGenerateEmbeddings = async () => {
@@ -456,6 +504,15 @@ export default function InventoryPage() {
 
                       <button
                         type="button"
+                        onClick={() => openStockModal(product)}
+                        className="min-h-[44px] px-3 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-1.5 hover:bg-gray-50"
+                      >
+                        <Boxes className="w-4 h-4" />
+                        <span>Stock</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => {
                           setProductToEdit(product);
                           setIsModalOpen(true);
@@ -604,6 +661,16 @@ export default function InventoryPage() {
 
                             <button
                               type="button"
+                              onClick={() => openStockModal(product)}
+                              title="Edit Stock"
+                              aria-label={`Edit stock for ${product.name}`}
+                              className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:text-emerald-700 hover:bg-emerald-50"
+                            >
+                              <Boxes className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
                               onClick={() => {
                                 setProductToEdit(product);
                                 setIsModalOpen(true);
@@ -646,6 +713,128 @@ export default function InventoryPage() {
         }}
         productToEdit={productToEdit}
       />
+
+      {/* Quick Edit Stock Modal */}
+      {stockEditProduct && (
+        <div
+          onClick={() => !savingStock && setStockEditProduct(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
+        >
+          <form
+            onSubmit={handleSaveStock}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 p-5 space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                  Edit Stock
+                </p>
+                <h3 className="text-base font-extrabold text-gray-900 truncate">
+                  {stockEditProduct.name}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Current stock: {stockEditProduct.stock}{" "}
+                  {stockEditProduct.unit || ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStockEditProduct(null)}
+                disabled={savingStock}
+                aria-label="Close stock editor"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  const current = Math.max(0, parseInt(stockInput, 10) || 0);
+                  setStockInput(String(Math.max(0, current - 1)));
+                }}
+                aria-label="Decrease stock"
+                className="w-11 h-11 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoFocus
+                value={stockInput}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const normalized = e.target.value
+                    .replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d)))
+                    .replace(/[^0-9]/g, "");
+                  setStockInput(normalized);
+                }}
+                className="w-24 min-h-[44px] text-center text-xl font-extrabold text-gray-900 bg-transparent focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const current = Math.max(0, parseInt(stockInput, 10) || 0);
+                  setStockInput(String(current + 1));
+                }}
+                aria-label="Increase stock"
+                className="w-11 h-11 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {[1, 5, 10, 20].map((delta) => (
+                <button
+                  key={delta}
+                  type="button"
+                  onClick={() => {
+                    const current = Math.max(0, parseInt(stockInput, 10) || 0);
+                    setStockInput(String(current + delta));
+                  }}
+                  className="flex-1 min-h-[38px] rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs font-bold text-gray-700"
+                >
+                  +{delta}
+                </button>
+              ))}
+            </div>
+
+            {stockError && (
+              <p className="text-xs font-semibold text-red-600">{stockError}</p>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setStockEditProduct(null)}
+                disabled={savingStock}
+                className="flex-1 min-h-[44px] rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingStock}
+                className="flex-1 min-h-[44px] rounded-xl text-sm font-bold bg-black text-white hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {savingStock ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Stock</span>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
