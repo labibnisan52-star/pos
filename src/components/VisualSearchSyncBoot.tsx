@@ -23,11 +23,17 @@ export default function VisualSearchSyncBoot() {
       });
     };
 
-    runSync(false);
+    // Defer heavy embedding sync by 3s so initial page render & POS catalog load immediately
+    const timer = setTimeout(() => {
+      runSync(false);
+    }, 3000);
 
     const handleOnline = () => runSync(true);
     window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("online", handleOnline);
+    };
   }, [user, supabase]);
 
   return null;

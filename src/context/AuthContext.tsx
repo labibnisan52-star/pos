@@ -66,15 +66,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const fetchUserAndRole = async () => {
-      setLoading(true);
       const cached = readCachedAuth();
 
-      // If offline, immediately restore cached user + role and never log out
+      // Instant optimistic hydration from cached session so opening the app never blocks on network
+      if (cached) {
+        setUser(cached.user);
+        setRole(cached.role);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
+      // If offline, stop here and keep cached session
       if (typeof navigator !== "undefined" && !navigator.onLine) {
-        if (cached) {
-          setUser(cached.user);
-          setRole(cached.role);
-        }
         setLoading(false);
         return;
       }

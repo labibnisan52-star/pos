@@ -51,12 +51,12 @@ const withPWA = withPWAInit({
         handler: "NetworkOnly",
       },
       {
-        // HTML page navigations: always try network first with a 5s timeout
+        // HTML page navigations: try network with fast 1.5s fallback to cache
         urlPattern: ({ request }) => request.mode === "navigate",
         handler: "NetworkFirst",
         options: {
           cacheName: "pages-navigate",
-          networkTimeoutSeconds: 3,
+          networkTimeoutSeconds: 1.5,
           expiration: {
             maxEntries: 32,
             maxAgeSeconds: 24 * 60 * 60,
@@ -72,7 +72,7 @@ const withPWA = withPWAInit({
         handler: "NetworkFirst",
         options: {
           cacheName: "pages-rsc",
-          networkTimeoutSeconds: 3,
+          networkTimeoutSeconds: 1.5,
           expiration: {
             maxEntries: 32,
             maxAgeSeconds: 24 * 60 * 60,
