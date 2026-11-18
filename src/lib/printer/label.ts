@@ -1,7 +1,6 @@
 "use client";
 
 import JsBarcode from "jsbarcode";
-import { formatBDT } from "@/lib/calculations";
 import { EscPosEncoder } from "./escpos";
 import { canvasToEscPosRaster, ensureFontsReady } from "./raster";
 import {
@@ -26,8 +25,11 @@ export function buildLabelCanvas(
   widthDots: number,
   heightDots: number
 ): HTMLCanvasElement {
+  // Match the exact 50x20mm (384x160 dots) NIIMBOT label style & layout
   const W = Math.max(160, Math.ceil(widthDots / 8) * 8);
   const H = Math.max(96, Math.round(heightDots));
+  const scaleX = W / 384;
+  const scaleY = H / 160;
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -40,15 +42,13 @@ export function buildLabelCanvas(
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = "#000000";
 
-  const pad = 8;
-
-  // Top: Product name (wrapped/truncated)
+  // Top Center: Brand Name "RIZQ"
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `800 ${H >= 180 ? 20 : 16}px ${BENGALI_FONT_STACK}`;
-  ctx.fillText(data.productName, W / 2, 6, W - pad * 2);
+  ctx.font = `italic 900 ${Math.round(32 * scaleY)}px 'Arial Black', Impact, sans-serif`;
+  ctx.fillText("RIZQ", W / 2, Math.round(6 * scaleY));
 
-  // Middle: Code128 barcode via offscreen JsBarcode canvas
+  // Middle: Code128 Barcode with number below
   const effectiveCode =
     data.barcode && data.barcode.length < 8
       ? data.barcode.padStart(8, "0")
@@ -58,40 +58,63 @@ export function buildLabelCanvas(
   try {
     JsBarcode(barcodeCanvas, effectiveCode, {
       format: "CODE128",
-      width: W >= 384 ? 2 : 1.6,
-      height: Math.max(40, Math.round(H * 0.42)),
+      width: 1.8,
+      height: 55,
       displayValue: true,
-      fontSize: 14,
-      margin: 2,
+      fontSize: 12,
+      margin: 4,
       background: "#ffffff",
       lineColor: "#000000",
     });
 
-    const targetW = Math.min(W - pad * 2, barcodeCanvas.width);
-    const targetH = Math.min(Math.round(H * 0.54), barcodeCanvas.height);
-    const bx = Math.round((W - targetW) / 2);
-    const by = Math.round(H * 0.19);
-    ctx.drawImage(barcodeCanvas, bx, by, targetW, targetH);
+    const targetW = Math.round(280 * scaleX);
+    const targetH = Math.round(75 * scaleY);
+    const barcodeX = Math.round((W - targetW) / 2);
+    const barcodeY = Math.round(40 * scaleY);
+    ctx.drawImage(barcodeCanvas, barcodeX, barcodeY, targetW, targetH);
   } catch {
     ctx.font = "bold 16px monospace";
-    ctx.fillText(effectiveCode, W / 2, Math.round(H * 0.4), W - pad * 2);
+    ctx.fillText(effectiveCode, W / 2, Math.round(52 * scaleY), W - 24);
   }
 
-  // Bottom row: SKU (left) + Price (right)
-  const bottomY = H - 28;
-  if (data.sku) {
-    ctx.textAlign = "left";
-    ctx.font = "bold 13px Arial, Helvetica, sans-serif";
-    ctx.fillText(`SKU: ${data.sku}`, pad, bottomY + 3, W * 0.45);
+  // Bottom Left: Product Name (up to 2 lines)
+  ctx.textAlign = "left";
+  ctx.font = `bold ${Math.round(16 * scaleY)}px ${BENGALI_FONT_STACK}`;
+  const maxTextWidth = W * 0.65;
+  const words = data.productName.split(" ");
+  let lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxTextWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  lines = lines.slice(0, 2);
+
+  const textStartY = Math.round(122 * scaleY);
+  const lineHeight = Math.round(18 * scaleY);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(
+      lines[i],
+      Math.round(12 * scaleX),
+      textStartY + i * lineHeight,
+      maxTextWidth
+    );
   }
 
-  ctx.textAlign = data.sku ? "right" : "center";
-  ctx.font = `900 ${H >= 180 ? 22 : 18}px Arial, Helvetica, sans-serif`;
+  // Bottom Right: Price ("TK 500.00")
+  ctx.textAlign = "right";
+  ctx.font = `bold ${Math.round(26 * scaleY)}px Arial, Helvetica, sans-serif`;
   ctx.fillText(
-    `৳${formatBDT(data.price)}`,
-    data.sku ? W - pad : W / 2,
-    bottomY,
-    W * 0.55
+    `TK ${data.price.toFixed(2)}`,
+    W - Math.round(12 * scaleX),
+    Math.round(126 * scaleY)
   );
 
   return canvas;

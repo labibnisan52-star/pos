@@ -19,10 +19,10 @@ export const DOTS_PER_MM = 8; // ~203 DPI
 export const DEFAULT_USB_PRINTER_SETTINGS: UsbPrinterSettings = {
   paperWidthMm: 58,
   density: 10,
-  labelWidthMm: 48,
-  labelHeightMm: 25,
+  labelWidthMm: 50,
+  labelHeightMm: 20,
   receiptExtraFeedLines: 4,
-  labelFeedMm: 4,
+  labelFeedMm: 3,
   defaultCopies: 1,
   cutAfterPrint: false,
   openCashDrawer: false,
