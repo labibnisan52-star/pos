@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { calculateLineTotal, formatBDT } from "@/lib/calculations";
-import { SCAN_MINI_CART_LABELS } from "@/lib/i18n/scan-cart";
+import { useTranslation } from "@/lib/i18n";
 import { validateStock } from "@/lib/stock-validation";
 import { Z_INDEX } from "@/lib/z-index";
 
@@ -66,8 +66,7 @@ export default function ScanMiniCartSheet({
   onScanMore,
   onGoToCheckout,
 }: ScanMiniCartSheetProps) {
-  const t = SCAN_MINI_CART_LABELS.bn;
-  const tEn = SCAN_MINI_CART_LABELS.en;
+  const { t } = useTranslation();
   const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
   const [stockWarning, setStockWarning] = useState<{
     key: string;
@@ -135,7 +134,7 @@ export default function ScanMiniCartSheet({
       }
       setStockWarning({
         key: item.cartKey,
-        message: check.message || t.stockLimitReached,
+        message: check.message || t("scanSheet.stockLimitReached"),
       });
       setTimeout(() => {
         setStockWarning((prev) =>
@@ -159,7 +158,11 @@ export default function ScanMiniCartSheet({
   return (
     <div
       className="fixed inset-0 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
-      style={{ zIndex: Z_INDEX.scanMiniCart }}
+      style={{
+        zIndex: Z_INDEX.scanMiniCart,
+        fontFamily:
+          "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+      }}
     >
       <div className="bg-white w-full sm:max-w-md max-h-[88dvh] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* a. Header */}
@@ -179,8 +182,10 @@ export default function ScanMiniCartSheet({
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-                {prompt.status === "added" ? t.addedToCart : t.scanNotice}
+              <p className="text-[11px] font-bold text-emerald-700">
+                {prompt.status === "added"
+                  ? t("scanSheet.addedToCart")
+                  : t("scanSheet.scanNotice")}
               </p>
               {prompt.status === "added" ? (
                 <>
@@ -203,7 +208,7 @@ export default function ScanMiniCartSheet({
           <button
             type="button"
             onClick={onClose}
-            aria-label={tEn.close}
+            aria-label={t("scanSheet.close")}
             className="min-w-[44px] min-h-[44px] -mr-1 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100"
           >
             <X className="w-5 h-5" />
@@ -280,7 +285,7 @@ export default function ScanMiniCartSheet({
                             onUpdateQuantityDelta(item.cartKey, -1);
                           }
                         }}
-                        aria-label={tEn.decreaseQty}
+                        aria-label={t("scanSheet.decreaseQty")}
                         className="min-w-[44px] min-h-[44px] rounded-lg flex items-center justify-center text-gray-800 hover:bg-white transition-colors"
                       >
                         <Minus className="w-4 h-4" />
@@ -291,7 +296,7 @@ export default function ScanMiniCartSheet({
                       <button
                         type="button"
                         onClick={() => handleIncrement(item)}
-                        aria-label={tEn.increaseQty}
+                        aria-label={t("scanSheet.increaseQty")}
                         className="min-w-[44px] min-h-[44px] rounded-lg flex items-center justify-center text-gray-800 hover:bg-white transition-colors"
                       >
                         <Plus className="w-4 h-4" />
@@ -313,7 +318,7 @@ export default function ScanMiniCartSheet({
                     <button
                       type="button"
                       onClick={() => handleRemove(item.cartKey)}
-                      aria-label={`${tEn.remove} ${item.name}`}
+                      aria-label={`${t("scanSheet.remove")} ${item.name}`}
                       className="min-w-[44px] min-h-[44px] rounded-xl flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -332,8 +337,7 @@ export default function ScanMiniCartSheet({
         >
           <div className="p-3.5 rounded-2xl bg-[#f3f0ea] flex items-center justify-between">
             <span className="text-xs font-bold text-gray-600">
-              {t.cartLabel} ({itemCount}{" "}
-              {itemCount === 1 ? t.itemSingular : t.itemPlural})
+              {t("scanSheet.cartSummary", { count: itemCount })}
             </span>
             <span className="text-base font-black text-gray-900">
               ৳{formatBDT(grandTotal)}
@@ -348,7 +352,7 @@ export default function ScanMiniCartSheet({
             }}
           >
             <p className="text-base font-extrabold text-gray-900 text-center leading-snug">
-              {t.askAddMore}
+              {t("scanSheet.askAddMore")}
             </p>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -358,7 +362,7 @@ export default function ScanMiniCartSheet({
                 className="w-full min-h-[52px] py-3 px-4 bg-black hover:bg-gray-800 active:scale-[0.98] text-white rounded-2xl text-base font-extrabold flex items-center justify-center gap-2 shadow-md transition-all"
               >
                 <QrCode className="w-5 h-5" />
-                <span>{t.yes}</span>
+                <span>{t("scanSheet.yes")}</span>
               </button>
 
               <button
@@ -367,7 +371,7 @@ export default function ScanMiniCartSheet({
                 className="w-full min-h-[52px] py-3 px-4 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-900 rounded-2xl text-base font-extrabold flex items-center justify-center gap-2 transition-all"
               >
                 <ShoppingBag className="w-5 h-5" />
-                <span>{t.no}</span>
+                <span>{t("scanSheet.no")}</span>
               </button>
             </div>
           </div>

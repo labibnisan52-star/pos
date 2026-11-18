@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { X, Flashlight, AlertCircle } from "lucide-react";
 import { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
 import { Z_INDEX } from "@/lib/z-index";
+import { useTranslation } from "@/lib/i18n";
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
@@ -18,6 +19,7 @@ export default function BarcodeScanner({
   inlineAlert,
   onDismissAlert,
 }: BarcodeScannerProps) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string>("");
   const [isFlashSupported, setIsFlashSupported] = useState(false);
@@ -178,14 +180,20 @@ export default function BarcodeScanner({
       style={{ zIndex: Z_INDEX.scannerOverlay }}
     >
       {/* Header */}
-      <div className="flex justify-between items-center p-4 bg-black/50 backdrop-blur-md absolute top-0 left-0 right-0 z-10">
-        <h2 className="text-white font-bold text-lg">Scan Barcode</h2>
+      <div
+        className="flex justify-between items-center p-4 bg-black/50 backdrop-blur-md absolute top-0 left-0 right-0 z-10"
+        style={{
+          fontFamily:
+            "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+        }}
+      >
+        <h2 className="text-white font-bold text-lg">{t("scanner.title")}</h2>
         <div className="flex space-x-3">
           {isFlashSupported && (
             <button 
               type="button"
               onClick={toggleFlash}
-              aria-label="Toggle flash"
+              aria-label={t("scanner.toggleFlash")}
               className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full ${isFlashOn ? 'bg-yellow-400 text-black' : 'bg-gray-800 text-white'}`}
             >
               <Flashlight className="w-5 h-5" />
@@ -194,7 +202,7 @@ export default function BarcodeScanner({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close scanner"
+            aria-label={t("scanner.close")}
             className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-gray-800 text-white rounded-full"
           >
             <X className="w-5 h-5" />
@@ -209,11 +217,11 @@ export default function BarcodeScanner({
             <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
             <p className="text-white font-medium mb-4">{error}</p>
             <div className="w-full text-left">
-              <label className="text-xs text-white/70 mb-1 block">Type barcode manually:</label>
+              <label className="text-xs text-white/70 mb-1 block">{t("scanner.typeManually")}</label>
               <input 
                 type="text" 
                 className="w-full px-4 py-2 rounded-lg text-black font-bold focus:outline-none"
-                placeholder="Enter barcode..."
+                placeholder={t("scanner.enterBarcode")}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     onScan(e.currentTarget.value);
@@ -225,7 +233,7 @@ export default function BarcodeScanner({
               onClick={onClose}
               className="mt-6 px-6 py-2 bg-white text-black font-bold rounded-lg w-full"
             >
-              Close
+              {t("scanner.close")}
             </button>
           </div>
         ) : (
@@ -253,8 +261,14 @@ export default function BarcodeScanner({
               <div className="flex-1 bg-black/50"></div>
             </div>
             
-            <p className="absolute bottom-12 text-white/90 text-sm font-semibold z-10 px-5 py-2.5 bg-black/60 backdrop-blur-sm rounded-full">
-              Align barcode within the frame
+            <p
+              className="absolute bottom-12 text-white/90 text-sm font-semibold z-10 px-5 py-2.5 bg-black/60 backdrop-blur-sm rounded-full"
+              style={{
+                fontFamily:
+                  "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+              }}
+            >
+              {t("scanner.alignHint")}
             </p>
 
             {/* Inline high-contrast error banner inside camera view */}

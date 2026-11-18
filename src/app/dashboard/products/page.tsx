@@ -33,6 +33,8 @@ import {
   useDataLoadState,
   SlowLoadingNotice,
 } from "@/components/ui/data-loader";
+import { useTranslation } from "@/lib/i18n";
+import { readOfflineCatalog } from "@/lib/offline/sync";
 
 type Product = {
   id: string;
@@ -54,6 +56,7 @@ type Product = {
 export default function InventoryPage() {
   const router = useRouter();
   const { role } = useAuth();
+  const { t } = useTranslation();
   const supabase = useMemo(() => createClient(), []);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +80,28 @@ export default function InventoryPage() {
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const offline = await readOfflineCatalog();
+      if (offline.products.length > 0) {
+        setProducts(
+          offline.products.map((p) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            stock: p.stock,
+            category: p.category,
+            barcode: p.barcode || "",
+            image_color: p.image_color || "bg-gray-100",
+            image_url: p.image_url,
+            unit: p.unit,
+            cost_price: p.cost_price,
+          }))
+        );
+      }
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("products")
       .select("*")
@@ -93,6 +118,10 @@ export default function InventoryPage() {
   }, [fetchProducts]);
 
   const handleDelete = async (id: string) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      alert(t("offline.internetRequired"));
+      return;
+    }
     if (confirm("Are you sure you want to delete this product?")) {
       await supabase.from("purchase_orders").delete().eq("product_id", id);
       await supabase.from("products").delete().eq("id", id);
@@ -101,6 +130,10 @@ export default function InventoryPage() {
   };
 
   const openStockModal = (product: Product) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      alert(t("offline.internetRequired"));
+      return;
+    }
     setStockEditProduct(product);
     setStockInput(String(product.stock ?? 0));
     setStockError(null);

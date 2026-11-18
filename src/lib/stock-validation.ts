@@ -1,7 +1,4 @@
-import {
-  STOCK_ERROR_MESSAGES,
-  type ScanCartLocale,
-} from "@/lib/i18n/scan-cart";
+import { translate, type Locale } from "@/lib/i18n";
 
 export interface StockValidationParams {
   productName: string;
@@ -12,7 +9,7 @@ export interface StockValidationParams {
   additionalUnits?: number;
   /** Quantity of this item/product already in cart for display */
   qtyInCart?: number;
-  locale?: ScanCartLocale;
+  locale?: Locale;
 }
 
 export interface StockValidationResult {
@@ -34,13 +31,12 @@ export function validateStock({
   locale = "bn",
 }: StockValidationParams): StockValidationResult {
   const safeStock = Math.max(0, Number(availableStock) || 0);
-  const messages = STOCK_ERROR_MESSAGES[locale];
 
   if (safeStock <= 0) {
     return {
       allowed: false,
       reason: "out_of_stock",
-      message: messages.outOfStock(productName),
+      message: translate("stock.outOfStock", { productName }, locale),
     };
   }
 
@@ -49,7 +45,11 @@ export function validateStock({
     return {
       allowed: false,
       reason: "insufficient_stock",
-      message: messages.stockExhausted(productName, safeStock, shownQty),
+      message: translate(
+        "stock.stockExhausted",
+        { productName, stock: safeStock, qtyInCart: shownQty },
+        locale
+      ),
     };
   }
 
@@ -59,4 +59,3 @@ export function validateStock({
     message: null,
   };
 }
-

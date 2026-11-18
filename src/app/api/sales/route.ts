@@ -14,6 +14,7 @@ interface IncomingSaleItem {
 }
 
 interface IncomingSaleBody {
+  clientSaleId?: string;
   items: IncomingSaleItem[];
   discountType?: DiscountType | string;
   discountValue?: number | string | null;
@@ -23,9 +24,32 @@ interface IncomingSaleBody {
   customerMobile?: string;
 }
 
+// Short-lived in-memory idempotency cache so retries of the same clientSaleId never double-insert
+const recentIdempotentOrders = new Map<
+  string,
+  { order: Record<string, unknown>; expiresAt: number }
+>();
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as IncomingSaleBody;
+    const idempotencyKey = (
+      request.headers.get("Idempotency-Key") ||
+      body?.clientSaleId ||
+      ""
+    ).trim();
+
+    if (idempotencyKey) {
+      const now = Date.now();
+      for (const [k, v] of recentIdempotentOrders.entries()) {
+        if (v.expiresAt < now) recentIdempotentOrders.delete(k);
+      }
+      const cached = recentIdempotentOrders.get(idempotencyKey);
+      if (cached && cached.expiresAt >= now) {
+        return NextResponse.json({ order: cached.order }, { status: 200 });
+      }
+    }
+
     const rawItems = Array.isArray(body?.items) ? body.items : [];
 
     if (rawItems.length === 0) {
@@ -271,6 +295,13 @@ export async function POST(request: NextRequest) {
         line_total: serverTotals.items[idx].lineTotal,
       })),
     };
+
+    if (idempotencyKey) {
+      recentIdempotentOrders.set(idempotencyKey, {
+        order: receiptOrder,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+    }
 
     return NextResponse.json({ order: receiptOrder }, { status: 200 });
   } catch (err: unknown) {

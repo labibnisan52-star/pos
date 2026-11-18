@@ -22,6 +22,9 @@ import {
   Coins,
   MessageSquarePlus,
   Loader2,
+  WifiOff,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/utils/supabase/client";
@@ -29,6 +32,9 @@ import { loadStoreSettings } from "@/components/ReceiptModal";
 import VisualSearchSyncBoot from "@/components/VisualSearchSyncBoot";
 import { TablePageSkeleton } from "@/components/ui/skeleton";
 import { OfflineStatusBanner } from "@/components/ui/data-loader";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useTranslation } from "@/lib/i18n";
+import PendingSalesSheet from "@/components/offline/PendingSalesSheet";
 
 function NavLinkSpinner({
   forcePending = false,
@@ -58,24 +64,14 @@ export default function DashboardLayout({
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
-  const [isOffline, setIsOffline] = useState(() =>
-    typeof navigator !== "undefined" ? !navigator.onLine : false
-  );
+  const [pendingSheetOpen, setPendingSheetOpen] = useState(false);
+  const { isOnline, pendingCount, failedCount, isSyncing } = useOnlineStatus();
+  const { t } = useTranslation();
+  const isOffline = !isOnline;
   const [shopLogo, setShopLogo] = useState("");
   const [shopName, setShopName] = useState("RIZQ");
   const supabase = createClient();
   const { user, role, loading } = useAuth();
-
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
 
   // Require authentication for all dashboard routes
   useEffect(() => {
@@ -198,24 +194,64 @@ export default function DashboardLayout({
           </div>
         </div>
 
-        <Link
-          href="/dashboard/pos"
-          prefetch
-          onClick={() => {
-            if (pathname !== "/dashboard/pos") setPendingHref("/dashboard/pos");
-          }}
-          className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all ${
-            pathname === "/dashboard/pos"
-              ? "bg-[#f3f0ea] text-gray-900"
-              : pendingHref === "/dashboard/pos"
-              ? "bg-gray-800 text-white opacity-90"
-              : "bg-black text-white"
-          }`}
-        >
-          <Store className="w-3.5 h-3.5" />
-          <span>POS</span>
-          <NavLinkSpinner forcePending={pendingHref === "/dashboard/pos"} />
-        </Link>
+        <div className="flex items-center gap-1.5">
+          {(!isOnline || pendingCount > 0 || failedCount > 0 || isSyncing) && (
+            <button
+              type="button"
+              onClick={() => setPendingSheetOpen(true)}
+              style={{
+                fontFamily:
+                  "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+              }}
+              className={`min-h-[34px] px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 border active:scale-95 transition-all ${
+                failedCount > 0
+                  ? "bg-red-50 text-red-700 border-red-200"
+                  : isSyncing || (isOnline && pendingCount > 0)
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  : "bg-amber-50 text-amber-800 border-amber-200"
+              }`}
+            >
+              {failedCount > 0 ? (
+                <>
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{t("offline.badgeFailed", { count: failedCount })}</span>
+                </>
+              ) : isSyncing || (isOnline && pendingCount > 0) ? (
+                <>
+                  <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
+                  <span>{t("offline.badgeSyncing", { count: pendingCount })}</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3 shrink-0" />
+                  <span>
+                    {t("offline.badgeOffline")}
+                    {pendingCount > 0 ? ` (${pendingCount})` : ""}
+                  </span>
+                </>
+              )}
+            </button>
+          )}
+
+          <Link
+            href="/dashboard/pos"
+            prefetch
+            onClick={() => {
+              if (pathname !== "/dashboard/pos") setPendingHref("/dashboard/pos");
+            }}
+            className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all ${
+              pathname === "/dashboard/pos"
+                ? "bg-[#f3f0ea] text-gray-900"
+                : pendingHref === "/dashboard/pos"
+                ? "bg-gray-800 text-white opacity-90"
+                : "bg-black text-white"
+            }`}
+          >
+            <Store className="w-3.5 h-3.5" />
+            <span>POS</span>
+            <NavLinkSpinner forcePending={pendingHref === "/dashboard/pos"} />
+          </Link>
+        </div>
       </header>
 
       {/* Mobile Hamburger Drawer (< md) */}
@@ -465,6 +501,12 @@ export default function DashboardLayout({
           children
         )}
       </main>
+
+      <PendingSalesSheet
+        isOpen={pendingSheetOpen}
+        isOnline={isOnline}
+        onClose={() => setPendingSheetOpen(false)}
+      />
     </div>
   );
 }

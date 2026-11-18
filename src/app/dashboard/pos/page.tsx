@@ -55,10 +55,14 @@ import {
 import ReceiptModal, { ReceiptOrderData } from "@/components/ReceiptModal";
 import ScanMiniCartSheet from "@/components/pos/ScanMiniCartSheet";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useTranslation } from "@/lib/i18n";
 import {
-  CHECKOUT_BAR_LABELS,
-  STOCK_ERROR_MESSAGES,
-} from "@/lib/i18n/scan-cart";
+  queueOfflineSale,
+  readOfflineCatalog,
+  syncCatalogToIndexedDB,
+  syncPendingSales,
+} from "@/lib/offline/sync";
 import { validateStock } from "@/lib/stock-validation";
 import { Z_INDEX } from "@/lib/z-index";
 import PosToastPortal, { type PosToastData } from "@/components/ui/pos-toast";
@@ -235,13 +239,13 @@ function SaleCartPanel({
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const keyboardHeight = useKeyboardInset();
   const isCompactBar = isMobileSheet && (keyboardHeight > 100 || isAmountFocused);
-  const cbLabels = CHECKOUT_BAR_LABELS.bn;
+  const { t } = useTranslation();
   const paymentStatusLabel =
     totals.paymentStatus === "Paid"
-      ? cbLabels.paid
+      ? t("checkout.paid")
       : totals.paymentStatus === "Unpaid"
-      ? cbLabels.unpaid
-      : cbLabels.partial;
+      ? t("checkout.unpaid")
+      : t("checkout.partial");
 
   // Measure floating checkout bar height so scrollable content never hides behind it
   useEffect(() => {
@@ -536,81 +540,7 @@ function SaleCartPanel({
           </div>
         )}
 
-        {/* Discount Box (% or ৳ toggle — only ONE active at a time) */}
-        <div className="bg-white p-3.5 rounded-2xl border border-gray-200/80 space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-gray-500" />
-              <span>Discount</span>
-            </label>
-
-            <div className="flex bg-[#f3f0ea] p-0.5 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setDiscountType("fixed")}
-                className={`min-h-[36px] px-3 rounded-lg text-xs font-bold transition-all ${
-                  discountType === "fixed"
-                    ? "bg-black text-white shadow-2xs"
-                    : "text-gray-700 hover:text-gray-900"
-                }`}
-              >
-                ৳ BDT
-              </button>
-              <button
-                type="button"
-                onClick={() => setDiscountType("percentage")}
-                className={`min-h-[36px] px-3 rounded-lg text-xs font-bold transition-all ${
-                  discountType === "percentage"
-                    ? "bg-black text-white shadow-2xs"
-                    : "text-gray-700 hover:text-gray-900"
-                }`}
-              >
-                % Percent
-              </button>
-            </div>
-          </div>
-
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={discountInput}
-              onChange={(e) => setDiscountInput(e.target.value)}
-              placeholder={
-                discountType === "percentage"
-                  ? "Enter discount % (0 - 100)"
-                  : "Enter discount amount in ৳"
-              }
-              className={`w-full min-h-[46px] px-3.5 pr-12 py-2.5 bg-gray-50 border rounded-xl text-sm font-bold text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:bg-white transition-colors ${
-                !discountValidation.valid
-                  ? "border-red-400 focus:border-red-500"
-                  : "border-gray-200 focus:border-gray-900"
-              }`}
-            />
-            <span className="absolute inset-y-0 right-3.5 flex items-center text-xs font-extrabold text-gray-500 pointer-events-none">
-              {discountType === "percentage" ? "%" : "৳"}
-            </span>
-          </div>
-
-          {!discountValidation.valid && discountValidation.error && (
-            <p className="text-xs font-semibold text-red-600">
-              {discountValidation.error}
-            </p>
-          )}
-          {isPercentClamped && (
-            <p className="text-[11px] font-semibold text-amber-700">
-              Percentage above 100% is automatically clamped to 100%.
-            </p>
-          )}
-          {isFixedClamped && (
-            <p className="text-[11px] font-semibold text-amber-700">
-              Discount exceeds subtotal and is capped at ৳
-              {formatBDT(totals.subtotal)}.
-            </p>
-          )}
-        </div>
-
-        {/* Payment Method (Amount Received is in the floating bottom bar) */}
+        {/* Payment Method (Amount Received & Discount are in the floating bottom bar) */}
         <div className="bg-white p-3.5 rounded-2xl border border-gray-200/80">
           <span className="block text-xs font-bold text-gray-700 mb-2">
             Payment Method
@@ -743,23 +673,23 @@ function SaleCartPanel({
       {/* Permanently Floating Bottom Checkout Bar */}
       <div
         ref={floatingBarRef}
-        className="absolute inset-x-0 z-20 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] rounded-t-2xl px-3.5 pt-2.5 space-y-2 transition-all duration-200"
+        className="absolute inset-x-0 z-20 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] rounded-t-2xl px-3.5 pt-2 space-y-1.5 transition-all duration-200"
         style={{
           bottom: isMobileSheet ? keyboardHeight : 0,
           paddingBottom:
             isMobileSheet && keyboardHeight > 0
               ? "8px"
-              : "max(12px, env(safe-area-inset-bottom))",
+              : "max(10px, env(safe-area-inset-bottom))",
           fontFamily:
             "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
         }}
       >
-        {/* a. Amount Received (Cash only) */}
+        {/* a + b. Amount Received (Cash only) */}
         {paymentMethod === "Cash" && (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex items-center justify-between gap-1.5 flex-wrap">
               <label className="text-[11px] font-bold text-gray-700">
-                {cbLabels.amountReceived}
+                {t("checkout.amountReceived")}
               </label>
               {totals.grandTotal > 0 && (
                 <div className="flex items-center gap-1 flex-wrap">
@@ -771,7 +701,7 @@ function SaleCartPanel({
                     }
                     className="px-2 py-0.5 rounded-md bg-[#f3f0ea] hover:bg-gray-200 text-[10px] font-bold text-gray-900 transition-colors"
                   >
-                    {cbLabels.exact}
+                    {t("checkout.exact")}
                   </button>
                   {[500, 1000].map((note) => (
                     <button
@@ -790,7 +720,7 @@ function SaleCartPanel({
                     onClick={() => setAmountReceivedInput("0")}
                     className="px-2 py-0.5 rounded-md bg-red-100 hover:bg-red-200 text-[10px] font-bold text-red-900 transition-colors"
                   >
-                    {cbLabels.dueZero}
+                    {t("checkout.dueZero")}
                   </button>
                 </div>
               )}
@@ -822,21 +752,100 @@ function SaleCartPanel({
                 }}
                 onChange={(e) => setAmountReceivedInput(e.target.value)}
                 placeholder="0.00"
-                className="w-full min-h-[42px] pl-7 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-extrabold text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:bg-white focus:border-gray-900 transition-colors"
+                className="w-full min-h-[38px] pl-7 pr-3 py-1 bg-gray-50 border border-gray-200 rounded-xl text-sm font-extrabold text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:bg-white focus:border-gray-900 transition-colors"
               />
             </div>
           </div>
         )}
 
-        {/* b. Summary: Compact single-line when keyboard open, Full card otherwise */}
+        {/* c. Discount Row (single line, always visible in both full and compact mode) */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-bold text-gray-700 shrink-0">
+            {t("checkout.discountLabel")}
+          </span>
+
+          <div className="flex items-center bg-[#f3f0ea] p-0.5 rounded-lg shrink-0">
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setDiscountType("fixed")}
+              className={`h-7 px-2 rounded-md text-[10px] font-bold transition-all ${
+                discountType === "fixed"
+                  ? "bg-black text-white shadow-2xs"
+                  : "text-gray-700 hover:text-gray-900"
+              }`}
+            >
+              {t("checkout.discountBdt")}
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setDiscountType("percentage")}
+              className={`h-7 px-2 rounded-md text-[10px] font-bold transition-all ${
+                discountType === "percentage"
+                  ? "bg-black text-white shadow-2xs"
+                  : "text-gray-700 hover:text-gray-900"
+              }`}
+            >
+              {t("checkout.discountPercent")}
+            </button>
+          </div>
+
+          <div className="relative w-20 sm:w-24 shrink-0">
+            <input
+              type="text"
+              inputMode="decimal"
+              enterKeyHint="done"
+              value={discountInput}
+              onFocus={() => {
+                setIsAmountFocused(true);
+                setTimeout(() => {
+                  floatingBarRef.current?.scrollIntoView({
+                    block: "nearest",
+                  });
+                }, 150);
+              }}
+              onBlur={() => setIsAmountFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+              }}
+              onChange={(e) => setDiscountInput(e.target.value)}
+              placeholder="0"
+              aria-label={t("checkout.discountLabel")}
+              className={`w-full h-8 px-2 pr-6 bg-gray-50 border rounded-lg text-xs font-extrabold text-gray-900 text-right placeholder:text-gray-400 focus:outline-none focus:bg-white transition-colors ${
+                !discountValidation.valid
+                  ? "border-red-400 focus:border-red-500"
+                  : "border-gray-200 focus:border-gray-900"
+              }`}
+            />
+            <span className="absolute inset-y-0 right-2 flex items-center text-[10px] font-extrabold text-gray-500 pointer-events-none">
+              {discountType === "percentage" ? "%" : "৳"}
+            </span>
+          </div>
+        </div>
+
+        {(isPercentClamped || isFixedClamped || !discountValidation.valid) && (
+          <p className="text-[10px] font-semibold text-amber-700 leading-tight">
+            {!discountValidation.valid
+              ? discountValidation.error
+              : isPercentClamped
+              ? "Max 100%"
+              : `Capped at ৳${formatBDT(totals.subtotal)}`}
+          </p>
+        )}
+
+        {/* d. Summary: Compact single-line when keyboard open, Full card otherwise */}
         {isCompactBar ? (
           <div className="bg-[#faf9f6] px-3 py-1.5 rounded-xl border border-gray-200/80 flex items-center justify-between gap-2 text-[11px] transition-opacity duration-150">
             <span className="font-extrabold text-gray-900 truncate">
-              {cbLabels.grandTotal}: ৳{formatBDT(totals.grandTotal)}
+              {t("checkout.grandTotal")}: ৳{formatBDT(totals.grandTotal)}
             </span>
             <span className="text-gray-300">|</span>
             <span className="font-bold text-emerald-700 truncate">
-              {cbLabels.changeShort}: ৳{formatBDT(totals.changeToReturn)}
+              {t("checkout.changeShort")}: ৳{formatBDT(totals.changeToReturn)}
             </span>
             <span className="text-gray-300">|</span>
             <span
@@ -844,20 +853,20 @@ function SaleCartPanel({
                 totals.dueAmount > 0 ? "text-amber-700" : "text-gray-600"
               }`}
             >
-              {cbLabels.dueShort}: ৳{formatBDT(totals.dueAmount)}
+              {t("checkout.dueShort")}: ৳{formatBDT(totals.dueAmount)}
             </span>
           </div>
         ) : (
-          <div className="bg-[#faf9f6] px-3 py-2 rounded-xl border border-gray-200/80 space-y-1 transition-opacity duration-150">
+          <div className="bg-[#faf9f6] px-3 py-1.5 rounded-xl border border-gray-200/80 space-y-1 transition-opacity duration-150">
             <div className="flex items-center justify-between text-[11px] text-gray-600">
-              <span>{cbLabels.subtotal}</span>
+              <span>{t("checkout.subtotal")}</span>
               <span className="font-bold text-gray-900">
                 ৳{formatBDT(totals.subtotal)}
               </span>
             </div>
             <div className="flex items-center justify-between text-[11px] text-gray-600">
               <span>
-                {cbLabels.discount}
+                {t("checkout.discountLabel")}
                 {totals.discountType === "percentage" && totals.discountValue > 0
                   ? ` (${totals.discountValue}%)`
                   : ""}
@@ -872,7 +881,7 @@ function SaleCartPanel({
             </div>
             <div className="pt-1 border-t border-gray-200 flex items-baseline justify-between">
               <span className="text-xs font-extrabold text-gray-900">
-                {cbLabels.grandTotal}
+                {t("checkout.grandTotal")}
               </span>
               <span className="text-lg font-black text-gray-900 tracking-tight">
                 ৳{formatBDT(totals.grandTotal)}
@@ -882,7 +891,7 @@ function SaleCartPanel({
             <div className="pt-1 grid grid-cols-2 gap-1.5">
               <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-100 min-w-0">
                 <span className="block text-[10px] font-bold text-emerald-700 leading-tight truncate">
-                  {cbLabels.changeToReturn}
+                  {t("checkout.changeToReturn")}
                 </span>
                 <span className="text-xs font-extrabold text-emerald-900">
                   ৳{formatBDT(totals.changeToReturn)}
@@ -898,7 +907,7 @@ function SaleCartPanel({
               >
                 <div className="flex items-center justify-between gap-1 min-w-0">
                   <span className="text-[10px] font-bold text-gray-600 leading-tight truncate">
-                    {cbLabels.dueAmount}
+                    {t("checkout.dueAmount")}
                   </span>
                   <span
                     className={`px-1.5 py-0.5 rounded text-[9px] font-bold border leading-tight shrink-0 ${statusBadgeClass}`}
@@ -929,12 +938,12 @@ function SaleCartPanel({
             {isSubmitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-                <span className="truncate">{cbLabels.savingSale}</span>
+                <span className="truncate">{t("checkout.savingSale")}</span>
               </>
             ) : (
               <>
                 <Check className="w-5 h-5 stroke-[2.5] shrink-0" />
-                <span className="truncate">{cbLabels.completeSale}</span>
+                <span className="truncate">{t("checkout.completeSale")}</span>
               </>
             )}
           </span>
@@ -949,6 +958,7 @@ function SaleCartPanel({
 
 export default function POSPage() {
   const supabase = useMemo(() => createClient(), []);
+  const { t } = useTranslation();
 
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1030,26 +1040,47 @@ export default function POSPage() {
     message?: string;
   } | null>(null);
 
-  // Connectivity & Offline Queue
-  const [isOnline, setIsOnline] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  // Connectivity & Offline Queue (backed by IndexedDB + Background Sync)
+  const {
+    isOnline,
+    pendingCount: offlineQueueCount,
+    isSyncing: syncing,
+    lastSyncedAt,
+    refreshSyncState,
+  } = useOnlineStatus();
 
   const fetchCatalog = useCallback(async () => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      let loadedFromLocal = false;
+      let loaded = false;
       try {
-        const cachedProducts = localStorage.getItem("pos_products_cache");
-        const cachedVariants = localStorage.getItem("pos_variants_cache");
-        if (cachedProducts) {
-          setProducts(JSON.parse(cachedProducts));
-          loadedFromLocal = true;
+        const offlineData = await readOfflineCatalog();
+        if (offlineData.products.length > 0) {
+          setProducts(offlineData.products);
+          setVariants(offlineData.variants);
+          if (offlineData.customers.length > 0) {
+            setCustomers(offlineData.customers);
+          }
+          loaded = true;
         }
-        if (cachedVariants) setVariants(JSON.parse(cachedVariants));
       } catch {
-        // Ignore malformed cache
+        // Fallback to localStorage / visual-search Dexie below
       }
-      if (!loadedFromLocal) {
+
+      if (!loaded) {
+        try {
+          const cachedProducts = localStorage.getItem("pos_products_cache");
+          const cachedVariants = localStorage.getItem("pos_variants_cache");
+          if (cachedProducts) {
+            setProducts(JSON.parse(cachedProducts));
+            loaded = true;
+          }
+          if (cachedVariants) setVariants(JSON.parse(cachedVariants));
+        } catch {
+          // Ignore malformed cache
+        }
+      }
+
+      if (!loaded) {
         try {
           const db = getVisualSearchDB();
           const [dexieProducts, dexieVariants] = await Promise.all([
@@ -1092,43 +1123,24 @@ export default function POSPage() {
     }
 
     try {
-      const [prodRes, varRes, custRes] = await Promise.all([
-        supabase.from("products").select("*").order("name", { ascending: true }),
-        supabase.from("product_variants").select("*"),
-        supabase
-          .from("customers")
-          .select("name, mobile")
-          .order("created_at", { ascending: false })
-          .limit(100),
-      ]);
-
-      if (!prodRes.error && prodRes.data) {
-        setProducts(prodRes.data);
-        localStorage.setItem(
-          "pos_products_cache",
-          JSON.stringify(prodRes.data)
-        );
-      }
-
-      if (!varRes.error && varRes.data) {
-        setVariants(varRes.data);
-        localStorage.setItem("pos_variants_cache", JSON.stringify(varRes.data));
-      }
-
-      if (!custRes.error && custRes.data) {
-        setCustomers(
-          custRes.data.map((c) => ({
-            name: c.name,
-            mobile: c.mobile || "",
-          }))
-        );
+      const synced = await syncCatalogToIndexedDB(supabase);
+      if (synced) {
+        setProducts(synced.products);
+        setVariants(synced.variants);
+        setCustomers(synced.customers);
       }
     } catch {
       try {
-        const cachedProducts = localStorage.getItem("pos_products_cache");
-        const cachedVariants = localStorage.getItem("pos_variants_cache");
-        if (cachedProducts) setProducts(JSON.parse(cachedProducts));
-        if (cachedVariants) setVariants(JSON.parse(cachedVariants));
+        const offlineData = await readOfflineCatalog();
+        if (offlineData.products.length > 0) {
+          setProducts(offlineData.products);
+          setVariants(offlineData.variants);
+        } else {
+          const cachedProducts = localStorage.getItem("pos_products_cache");
+          const cachedVariants = localStorage.getItem("pos_variants_cache");
+          if (cachedProducts) setProducts(JSON.parse(cachedProducts));
+          if (cachedVariants) setVariants(JSON.parse(cachedVariants));
+        }
       } catch {
         // Ignore
       }
@@ -1138,85 +1150,22 @@ export default function POSPage() {
   }, [supabase]);
 
   const syncOfflineOrders = useCallback(async () => {
-    setSyncing(true);
-    try {
-      const queue: OfflineQueuedSale[] = JSON.parse(
-        localStorage.getItem("offline_orders") || "[]"
-      );
-      if (queue.length === 0) return;
-
-      const remaining: OfflineQueuedSale[] = [];
-      for (const queued of queue) {
-        const res = await fetch("/api/sales", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: queued.items.map((it) => ({
-              id: it.id,
-              variant_id: it.variant_id,
-              quantity: it.quantity,
-            })),
-            discountType: queued.discountType,
-            discountValue: queued.discountValue,
-            amountReceived: queued.amountReceived,
-            paymentMethod: queued.paymentMethod,
-            customerName: queued.customerName,
-            customerMobile: queued.customerMobile,
-          }),
-        });
-
-        if (!res.ok) {
-          remaining.push(queued);
-        }
-      }
-
-      localStorage.setItem("offline_orders", JSON.stringify(remaining));
-      setOfflineQueueCount(remaining.length);
-
-      if (remaining.length === 0) {
-        showToast("Offline sales synced successfully!", "success");
-        fetchCatalog();
-      } else {
-        showToast(
-          `${remaining.length} offline sale(s) could not sync yet.`,
-          "error"
-        );
-      }
-    } catch {
-      showToast("Offline sync failed; will retry when online.", "error");
-    } finally {
-      setSyncing(false);
+    const result = await syncPendingSales({ ignoreBackoff: true });
+    await refreshSyncState();
+    if (result.synced > 0 && result.remaining === 0 && result.failed === 0) {
+      showToast(t("toast.saleCompleted"), "success");
+      fetchCatalog();
     }
-  }, [fetchCatalog, showToast]);
+  }, [fetchCatalog, refreshSyncState, showToast, t]);
 
   useEffect(() => {
-    setIsOnline(navigator.onLine);
     fetchCatalog();
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      syncOfflineOrders();
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    try {
-      const queue = JSON.parse(localStorage.getItem("offline_orders") || "[]");
-      setOfflineQueueCount(queue.length);
-      if (navigator.onLine && queue.length > 0) {
-        syncOfflineOrders();
-      }
-    } catch {
-      // Ignore
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      void syncPendingSales().then((res) => {
+        if (res.synced > 0) fetchCatalog();
+      });
     }
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, [fetchCatalog, syncOfflineOrders]);
+  }, [fetchCatalog]);
 
   const variantsByProduct = useMemo(() => {
     const map = new Map<string, ProductVariant[]>();
@@ -1397,8 +1346,7 @@ export default function POSPage() {
         locale: "bn",
       });
       if (!stockCheck.allowed) {
-        const msg =
-          stockCheck.message || STOCK_ERROR_MESSAGES.bn.insufficientStock;
+        const msg = stockCheck.message || t("stock.insufficientStock");
         showToast(msg, "error");
         return false;
       }
@@ -1450,10 +1398,7 @@ export default function POSPage() {
         locale: "bn",
       });
       if (!check.allowed) {
-        showToast(
-          check.message || STOCK_ERROR_MESSAGES.bn.noStock,
-          "error"
-        );
+        showToast(check.message || t("stock.noStock"), "error");
         return;
       }
       const prodVariants = variantsByProduct.get(product.id) || [];
@@ -1490,10 +1435,7 @@ export default function POSPage() {
           locale: "bn",
         });
         if (!check.allowed) {
-          showToast(
-            check.message || STOCK_ERROR_MESSAGES.bn.insufficientStock,
-            "error"
-          );
+          showToast(check.message || t("stock.insufficientStock"), "error");
           return;
         }
       }
@@ -1603,7 +1545,7 @@ export default function POSPage() {
       const match = lookupByCode(code);
       if (!match) {
         triggerScanError(
-          STOCK_ERROR_MESSAGES.bn.productNotFound(code.trim())
+          t("stock.productNotFound", { code: code.trim() })
         );
         return;
       }
@@ -1632,9 +1574,7 @@ export default function POSPage() {
       });
 
       if (!stockCheck.allowed) {
-        triggerScanError(
-          stockCheck.message || STOCK_ERROR_MESSAGES.bn.noStock
-        );
+        triggerScanError(stockCheck.message || t("stock.noStock"));
         return;
       }
 
@@ -1685,7 +1625,7 @@ export default function POSPage() {
           price: unitPrice,
         });
       } else {
-        showToast(`Added "${match.product.name}"`, "success");
+        showToast(t("toast.addedProduct", { name: match.product.name }), "success");
       }
     },
     [
@@ -1695,6 +1635,7 @@ export default function POSPage() {
       addResolvedItemToCart,
       showToast,
       showScannerAlert,
+      t,
     ]
   );
 
@@ -1744,88 +1685,104 @@ export default function POSPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // Offline mode queue
-      if (!isOnline) {
-        const localId = `offline-${Date.now()}`;
-        const createdAt = new Date().toISOString();
-        const queuedEntry: OfflineQueuedSale = {
-          localId,
-          createdAt,
-          items: cart.map((it) => ({
-            id: it.id,
-            variant_id: it.variant_id,
-            variant_label: it.variant_label,
-            name: it.name,
-            unitPrice: it.unitPrice,
-            quantity: it.quantity,
-          })),
-          discountType,
-          discountValue: discountInput,
-          amountReceived: amountReceivedInput,
-          paymentMethod,
-          customerName: customerName.trim() || "Walk-in Customer",
-          customerMobile: customerMobile.trim(),
-        };
+    const saveSaleOfflineLocally = async () => {
+      const createdAt = new Date().toISOString();
+      const record = await queueOfflineSale({
+        createdAt,
+        items: cart.map((it) => ({
+          id: it.id,
+          variant_id: it.variant_id,
+          variant_label: it.variant_label,
+          name: it.name,
+          unitPrice: it.unitPrice,
+          quantity: it.quantity,
+          stockMultiplier: it.stockMultiplier,
+        })),
+        discountType,
+        discountValue: discountInput,
+        amountReceived: amountReceivedInput,
+        paymentMethod,
+        customerName: customerName.trim() || "Walk-in Customer",
+        customerMobile: customerMobile.trim(),
+        subtotal: totals.subtotal,
+        discountAmount: totals.discountAmount,
+        grandTotal: totals.grandTotal,
+        changeToReturn: totals.changeToReturn,
+        dueAmount: totals.dueAmount,
+        paymentStatus: totals.paymentStatus,
+      });
 
-        const queue: OfflineQueuedSale[] = JSON.parse(
-          localStorage.getItem("offline_orders") || "[]"
-        );
-        queue.push(queuedEntry);
-        localStorage.setItem("offline_orders", JSON.stringify(queue));
-        setOfflineQueueCount(queue.length);
-
-        // Deduct local cached stock
-        const updatedProducts = products.map((p) => {
-          const used = cart
-            .filter((it) => it.id === p.id)
-            .reduce((s, it) => s + it.quantity * it.stockMultiplier, 0);
-          return used > 0 ? { ...p, stock: Math.max(0, p.stock - used) } : p;
-        });
-        setProducts(updatedProducts);
+      // Deduct local in-memory & localStorage stock immediately
+      const updatedProducts = products.map((p) => {
+        const used = cart
+          .filter((it) => it.id === p.id)
+          .reduce((s, it) => s + it.quantity * it.stockMultiplier, 0);
+        return used > 0 ? { ...p, stock: Math.max(0, p.stock - used) } : p;
+      });
+      setProducts(updatedProducts);
+      try {
         localStorage.setItem(
           "pos_products_cache",
           JSON.stringify(updatedProducts)
         );
+      } catch {
+        // Ignore storage quota
+      }
 
-        const offlineReceipt: ReceiptOrderData = {
-          id: localId,
-          created_at: createdAt,
-          customer_name: customerName.trim() || "Walk-in Customer",
-          customer_mobile: customerMobile.trim(),
-          payment_method: paymentMethod,
-          subtotal: totals.subtotal,
-          discount_type: totals.discountType,
-          discount_value: totals.discountValue,
-          discount_amount: totals.discountAmount,
-          grand_total: totals.grandTotal,
-          amount_received: totals.amountReceived,
-          paid_amount: totals.paidAmount,
-          change: totals.changeToReturn,
-          due_amount: totals.dueAmount,
-          payment_status: totals.paymentStatus,
-          items: cart.map((it, idx) => ({
-            name: it.name,
-            variant_label: it.variant_label,
-            quantity: totals.items[idx].quantity,
-            unit_price: totals.items[idx].unitPrice,
-            line_total: totals.items[idx].lineTotal,
-          })),
-          isOfflineQueued: true,
-        };
+      const offlineReceipt: ReceiptOrderData = {
+        id: record.id,
+        created_at: createdAt,
+        customer_name: customerName.trim() || "Walk-in Customer",
+        customer_mobile: customerMobile.trim(),
+        payment_method: paymentMethod,
+        subtotal: totals.subtotal,
+        discount_type: totals.discountType,
+        discount_value: totals.discountValue,
+        discount_amount: totals.discountAmount,
+        grand_total: totals.grandTotal,
+        amount_received: totals.amountReceived,
+        paid_amount: totals.paidAmount,
+        change: totals.changeToReturn,
+        due_amount: totals.dueAmount,
+        payment_status: totals.paymentStatus,
+        items: cart.map((it, idx) => ({
+          name: it.name,
+          variant_label: it.variant_label,
+          quantity: totals.items[idx].quantity,
+          unit_price: totals.items[idx].unitPrice,
+          line_total: totals.items[idx].lineTotal,
+        })),
+        isOfflineQueued: true,
+      };
 
-        resetSaleForm();
-        setCompletedReceipt(offlineReceipt);
-        showToast("Sale saved offline!", "success");
+      await refreshSyncState();
+      resetSaleForm();
+      setCompletedReceipt(offlineReceipt);
+      showToast(t("toast.saleSavedOffline"), "success");
+    };
+
+    setIsSubmitting(true);
+    try {
+      // Offline mode queue
+      if (!isOnline) {
+        await saveSaleOfflineLocally();
         return;
       }
 
-      // Online atomic server transaction via /api/sales
+      // Online atomic server transaction via /api/sales (with idempotency key)
+      const clientSaleId =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `sale-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
       const res = await fetch("/api/sales", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": clientSaleId,
+        },
         body: JSON.stringify({
+          clientSaleId,
           items: cart.map((it) => ({
             id: it.id,
             variant_id: it.variant_id,
@@ -1849,12 +1806,11 @@ export default function POSPage() {
       // Reset screen immediately for the next customer & display receipt modal
       resetSaleForm();
       setCompletedReceipt(payload.order as ReceiptOrderData);
-      showToast("Sale completed!", "success");
+      showToast(t("toast.saleCompleted"), "success");
       fetchCatalog();
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Network error while saving sale.";
-      showToast(msg, "error");
+    } catch {
+      // Network failed mid-request -> queue offline so no sale is ever lost
+      await saveSaleOfflineLocally();
     } finally {
       setIsSubmitting(false);
     }
@@ -1934,6 +1890,13 @@ export default function POSPage() {
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                 : "bg-amber-50 text-amber-800 border-amber-200"
             }`}
+            title={
+              lastSyncedAt
+                ? t("offline.lastSynced", {
+                    time: new Date(lastSyncedAt).toLocaleTimeString(),
+                  })
+                : t("offline.neverSynced")
+            }
           >
             {isOnline ? (
               <Wifi className="w-3.5 h-3.5 mr-1.5" />
@@ -1942,11 +1905,27 @@ export default function POSPage() {
             )}
             {isOnline
               ? syncing
-                ? "Syncing..."
+                ? t("offline.badgeSyncing", { count: offlineQueueCount })
                 : "Online"
-              : `Offline (${offlineQueueCount})`}
+              : `${t("offline.badgeOffline")} (${offlineQueueCount})`}
           </div>
         </div>
+        {lastSyncedAt && (
+          <div
+            className="px-3 sm:px-4 -mt-1 pb-1 text-[10px] text-gray-400 font-medium shrink-0"
+            style={{
+              fontFamily:
+                "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+            }}
+          >
+            {t("offline.lastSynced", {
+              time: new Date(lastSyncedAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            })}
+          </div>
+        )}
 
         {/* Category Filter Pills */}
         {products.length > 0 && (

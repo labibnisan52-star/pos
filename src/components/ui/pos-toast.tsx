@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, Check, X } from "lucide-react";
 import { Z_INDEX } from "@/lib/z-index";
-import { STOCK_ERROR_MESSAGES } from "@/lib/i18n/scan-cart";
+import { useTranslation } from "@/lib/i18n";
 
 export interface PosToastData {
   id: number;
@@ -25,6 +25,7 @@ export default function PosToastPortal({
   toast,
   onDismiss,
 }: PosToastPortalProps) {
+  const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function PosToastPortal({
         <button
           type="button"
           onClick={onDismiss}
-          aria-label={STOCK_ERROR_MESSAGES.bn.dismiss}
+          aria-label={t("stock.dismiss")}
           className="min-w-[36px] min-h-[36px] -mr-1 -my-1 rounded-xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/15 shrink-0"
         >
           <X className="w-4 h-4" />

@@ -6,9 +6,12 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === "development",
   register: true,
   cacheOnFrontEndNav: true,
+  fallbacks: {
+    document: "/offline",
+  },
   publicExcludes: ["!models/**/*"],
   workboxOptions: {
-    skipWaiting: true,
+    skipWaiting: false,
     clientsClaim: true,
     cleanupOutdatedCaches: true,
     runtimeCaching: [
@@ -21,6 +24,19 @@ const withPWA = withPWAInit({
           expiration: {
             maxEntries: 16,
             maxAgeSeconds: 90 * 24 * 60 * 60,
+          },
+        },
+      },
+      {
+        // Cache Supabase Storage product images for offline thumbnails
+        urlPattern:
+          /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "product-images-cache",
+          expiration: {
+            maxEntries: 200,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
           },
         },
       },

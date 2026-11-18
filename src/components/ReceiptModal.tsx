@@ -9,6 +9,7 @@ import {
   formatBDT,
   PaymentStatus,
 } from "@/lib/calculations";
+import { useTranslation } from "@/lib/i18n";
 
 export interface ReceiptItemData {
   name: string;
@@ -106,6 +107,7 @@ export default function ReceiptModal({
   title = "Sale Completed",
   primaryActionLabel = "Next Sale",
 }: ReceiptModalProps) {
+  const { t } = useTranslation();
   const receiptRef = useRef<HTMLDivElement>(null);
   const [settings, setSettings] = useState<StorePrintSettings>(DEFAULT_SETTINGS);
   const [paperWidth, setPaperWidth] = useState<"80mm" | "58mm">("80mm");
@@ -198,9 +200,15 @@ export default function ReceiptModal({
                 {title}
               </h2>
               {order.isOfflineQueued && (
-                <p className="text-[11px] font-medium text-amber-700">
-                  Saved offline — will sync automatically
-                </p>
+                <span
+                  className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-[11px] font-bold text-amber-800"
+                  style={{
+                    fontFamily:
+                      "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+                  }}
+                >
+                  {t("offline.offlinePendingBadge")}
+                </span>
               )}
             </div>
           </div>
