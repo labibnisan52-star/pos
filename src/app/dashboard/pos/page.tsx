@@ -235,7 +235,13 @@ function SaleCartPanel({
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const keyboardHeight = useKeyboardInset();
   const isCompactBar = isMobileSheet && (keyboardHeight > 100 || isAmountFocused);
-  const cbLabels = CHECKOUT_BAR_LABELS.en;
+  const cbLabels = CHECKOUT_BAR_LABELS.bn;
+  const paymentStatusLabel =
+    totals.paymentStatus === "Paid"
+      ? cbLabels.paid
+      : totals.paymentStatus === "Unpaid"
+      ? cbLabels.unpaid
+      : cbLabels.partial;
 
   // Measure floating checkout bar height so scrollable content never hides behind it
   useEffect(() => {
@@ -744,6 +750,8 @@ function SaleCartPanel({
             isMobileSheet && keyboardHeight > 0
               ? "8px"
               : "max(12px, env(safe-area-inset-bottom))",
+          fontFamily:
+            "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
         }}
       >
         {/* a. Amount Received (Cash only) */}
@@ -863,7 +871,7 @@ function SaleCartPanel({
               </span>
             </div>
             <div className="pt-1 border-t border-gray-200 flex items-baseline justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wide text-gray-900">
+              <span className="text-xs font-extrabold text-gray-900">
                 {cbLabels.grandTotal}
               </span>
               <span className="text-lg font-black text-gray-900 tracking-tight">
@@ -872,8 +880,8 @@ function SaleCartPanel({
             </div>
 
             <div className="pt-1 grid grid-cols-2 gap-1.5">
-              <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-100">
-                <span className="block text-[9px] font-bold uppercase text-emerald-700 leading-tight">
+              <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-100 min-w-0">
+                <span className="block text-[10px] font-bold text-emerald-700 leading-tight truncate">
                   {cbLabels.changeToReturn}
                 </span>
                 <span className="text-xs font-extrabold text-emerald-900">
@@ -882,20 +890,20 @@ function SaleCartPanel({
               </div>
 
               <div
-                className={`px-2.5 py-1.5 rounded-lg border ${
+                className={`px-2.5 py-1.5 rounded-lg border min-w-0 ${
                   totals.dueAmount > 0
                     ? "bg-amber-50/80 border-amber-200"
                     : "bg-white border-gray-200"
                 }`}
               >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[9px] font-bold uppercase text-gray-600 leading-tight">
+                <div className="flex items-center justify-between gap-1 min-w-0">
+                  <span className="text-[10px] font-bold text-gray-600 leading-tight truncate">
                     {cbLabels.dueAmount}
                   </span>
                   <span
-                    className={`px-1 py-0.2 rounded text-[9px] font-bold border leading-tight ${statusBadgeClass}`}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold border leading-tight shrink-0 ${statusBadgeClass}`}
                   >
-                    {totals.paymentStatus}
+                    {paymentStatusLabel}
                   </span>
                 </div>
                 <span
@@ -915,22 +923,22 @@ function SaleCartPanel({
           type="button"
           onClick={onCompleteSale}
           disabled={cart.length === 0 || isSubmitting}
-          className="w-full min-h-[48px] py-3 px-4 bg-black hover:bg-gray-800 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl flex items-center justify-between transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+          className="w-full min-h-[48px] py-3 px-4 bg-black hover:bg-gray-800 active:scale-[0.99] text-white font-extrabold text-sm rounded-xl flex items-center justify-between gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
         >
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 min-w-0">
             {isSubmitting ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>{cbLabels.savingSale}</span>
+                <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                <span className="truncate">{cbLabels.savingSale}</span>
               </>
             ) : (
               <>
-                <Check className="w-5 h-5 stroke-[2.5]" />
-                <span>{cbLabels.completeSale}</span>
+                <Check className="w-5 h-5 stroke-[2.5] shrink-0" />
+                <span className="truncate">{cbLabels.completeSale}</span>
               </>
             )}
           </span>
-          <span className="text-base font-black">
+          <span className="text-base font-black shrink-0">
             ৳{formatBDT(totals.grandTotal)}
           </span>
         </button>
