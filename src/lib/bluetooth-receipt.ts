@@ -213,9 +213,12 @@ export async function printReceiptViaBluetooth(
     });
 
     await printTask.printInit();
-    await printTask.printPage(encodedImage, 1);
-    await printTask.waitForFinished();
-    await receiptBtClient.abstraction.printEnd();
+    try {
+      await printTask.printPage(encodedImage, 1);
+      await printTask.waitForFinished();
+    } finally {
+      await receiptBtClient.abstraction.printEnd().catch(() => {});
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Bluetooth print failed";
     if (
@@ -226,6 +229,11 @@ export async function printReceiptViaBluetooth(
     ) {
       receiptBtConnected = false;
       receiptBtClient = null;
+    }
+    if (msg.includes("WriteRfidFail") || msg.includes("error 20")) {
+      throw new Error(
+        "Printer RFID error (WriteRfidFail): Re-seat the NIIMBOT label roll and close the lid tightly, or use 'Print' instead."
+      );
     }
     throw err;
   }

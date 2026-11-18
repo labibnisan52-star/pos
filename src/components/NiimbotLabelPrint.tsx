@@ -200,11 +200,12 @@ export default function NiimbotLabelPrint({
       });
 
       await printTask.printInit();
-      for (let page = 1; page <= count; page++) {
-        await printTask.printPage(encodedImage, page);
+      try {
+        await printTask.printPage(encodedImage, count);
+        await printTask.waitForFinished();
+      } finally {
+        await globalClient.abstraction.printEnd().catch(() => {});
       }
-      await printTask.waitForFinished();
-      await globalClient.abstraction.printEnd();
 
       setStatus(s => ({ ...s, isPrinting: false }));
     } catch (err: unknown) {
@@ -221,14 +222,19 @@ export default function NiimbotLabelPrint({
         globalClient = null;
       }
 
+      const friendlyMsg =
+        errorMsg.includes("WriteRfidFail") || errorMsg.includes("error 20")
+          ? "Printer RFID error (WriteRfidFail): Re-seat the NIIMBOT label roll and close the lid tightly, or use 'Device Printer' instead."
+          : `Print failed: ${errorMsg}`;
+
       setStatus({
         isConnecting: false,
         isPrinting: false,
-        error: errorMsg,
+        error: friendlyMsg,
         connected: globalConnected,
       });
 
-      alert(`Print failed: ${errorMsg}`);
+      alert(friendlyMsg);
     }
   }, [barcodeValue, drawLabel]);
 
