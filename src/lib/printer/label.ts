@@ -48,46 +48,39 @@ export function buildLabelCanvas(
   // 1. Top Center: Brand Name "RIZQ"
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `italic 900 ${Math.max(13, Math.round(16 * scaleY))}px 'Arial Black', Impact, sans-serif`;
+  ctx.font = `italic 900 ${Math.max(14, Math.round(18 * scaleY))}px 'Arial Black', Impact, sans-serif`;
   ctx.fillText("RIZQ", W / 2, topOffset + Math.round(2 * scaleY));
 
-  // 2. Product Name (centered, single line)
-  const maxTextWidth = W - Math.round(40 * scaleX);
-  ctx.font = `bold ${Math.max(11, Math.round(12 * scaleY))}px ${BENGALI_FONT_STACK}`;
-  ctx.fillText(
-    data.productName,
-    W / 2,
-    topOffset + Math.round(20 * scaleY),
-    maxTextWidth
-  );
+  // 2. Middle Row (all in one row): Product Name (left) | Barcode Number (center) | Price (right)
+  const rowY = topOffset + Math.round(25 * scaleY);
+  const sidePad = Math.round(16 * scaleX);
 
-  // 3. Barcode Number (centered)
+  ctx.textAlign = "left";
+  ctx.font = `bold ${Math.max(10, Math.round(11 * scaleY))}px ${BENGALI_FONT_STACK}`;
+  ctx.fillText(data.productName, sidePad, rowY, Math.round(W * 0.36));
+
   const effectiveCode =
     data.barcode && data.barcode.length < 8
       ? data.barcode.padStart(8, "0")
       : data.barcode || "00000000";
-  ctx.font = `bold ${Math.max(11, Math.round(12 * scaleY))}px monospace`;
-  ctx.fillText(
-    effectiveCode,
-    W / 2,
-    topOffset + Math.round(35 * scaleY),
-    maxTextWidth
-  );
+  ctx.textAlign = "center";
+  ctx.font = `bold ${Math.max(10, Math.round(11 * scaleY))}px monospace`;
+  ctx.fillText(effectiveCode, W / 2, rowY, Math.round(W * 0.28));
 
-  // 4. Price (centered)
-  ctx.font = `bold ${Math.max(13, Math.round(15 * scaleY))}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.font = `bold ${Math.max(12, Math.round(13 * scaleY))}px Arial, Helvetica, sans-serif`;
   ctx.fillText(
     `TK ${data.price.toFixed(2)}`,
-    W / 2,
-    topOffset + Math.round(50 * scaleY),
-    maxTextWidth
+    W - sidePad,
+    rowY - Math.round(1 * scaleY),
+    Math.round(W * 0.28)
   );
 
-  // 5. Bottom: Code128 Barcode bars (number already printed above)
-  const barcodeY = topOffset + Math.round(68 * scaleY);
+  // 3. Bottom: Code128 Barcode bars (number already printed in the row above)
+  const barcodeY = topOffset + Math.round(44 * scaleY);
   const targetW = Math.round(240 * scaleX);
   const targetH = Math.max(
-    Math.round(36 * scaleY),
+    Math.round(44 * scaleY),
     topOffset + contentH - barcodeY - Math.round(4 * scaleY)
   );
   const barcodeX = Math.round((W - targetW) / 2);
@@ -97,7 +90,7 @@ export function buildLabelCanvas(
     JsBarcode(barcodeCanvas, effectiveCode, {
       format: "CODE128",
       width: 1.5,
-      height: 44,
+      height: 52,
       displayValue: false,
       margin: 2,
       background: "#ffffff",
