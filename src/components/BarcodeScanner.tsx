@@ -3,13 +3,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, Flashlight, AlertCircle } from "lucide-react";
 import { BrowserMultiFormatReader, IScannerControls } from "@zxing/browser";
+import { Z_INDEX } from "@/lib/z-index";
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
   onClose: () => void;
+  inlineAlert?: { message: string } | null;
+  onDismissAlert?: () => void;
 }
 
-export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
+export default function BarcodeScanner({
+  onScan,
+  onClose,
+  inlineAlert,
+  onDismissAlert,
+}: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string>("");
   const [isFlashSupported, setIsFlashSupported] = useState(false);
@@ -165,7 +173,10 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-black">
+    <div
+      className="fixed inset-0 flex flex-col bg-black"
+      style={{ zIndex: Z_INDEX.scannerOverlay }}
+    >
       {/* Header */}
       <div className="flex justify-between items-center p-4 bg-black/50 backdrop-blur-md absolute top-0 left-0 right-0 z-10">
         <h2 className="text-white font-bold text-lg">Scan Barcode</h2>
@@ -245,6 +256,34 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
             <p className="absolute bottom-12 text-white/90 text-sm font-semibold z-10 px-5 py-2.5 bg-black/60 backdrop-blur-sm rounded-full">
               Align barcode within the frame
             </p>
+
+            {/* Inline high-contrast error banner inside camera view */}
+            {inlineAlert && (
+              <div
+                role="alert"
+                style={{
+                  top: "max(76px, calc(env(safe-area-inset-top) + 64px))",
+                  fontFamily:
+                    "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+                }}
+                className="absolute inset-x-4 z-20 mx-auto max-w-md bg-red-600 text-white border border-red-400 rounded-2xl px-4 py-3 shadow-2xl flex items-start gap-3"
+              >
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <p className="flex-1 text-sm font-bold leading-snug">
+                  {inlineAlert.message}
+                </p>
+                {onDismissAlert && (
+                  <button
+                    type="button"
+                    onClick={onDismissAlert}
+                    aria-label="Dismiss alert"
+                    className="min-w-[36px] min-h-[36px] -mr-1 -my-1 rounded-xl flex items-center justify-center text-white/85 hover:bg-white/15 shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

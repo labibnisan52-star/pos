@@ -54,6 +54,14 @@ import {
 } from "@/lib/calculations";
 import ReceiptModal, { ReceiptOrderData } from "@/components/ReceiptModal";
 import ScanMiniCartSheet from "@/components/pos/ScanMiniCartSheet";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
+import {
+  CHECKOUT_BAR_LABELS,
+  STOCK_ERROR_MESSAGES,
+} from "@/lib/i18n/scan-cart";
+import { validateStock } from "@/lib/stock-validation";
+import { Z_INDEX } from "@/lib/z-index";
+import PosToastPortal, { type PosToastData } from "@/components/ui/pos-toast";
 
 const BarcodeScanner = dynamic(() => import("@/components/BarcodeScanner"), {
   ssr: false,
@@ -222,8 +230,12 @@ function SaleCartPanel({
   const [highlightedCartKey, setHighlightedCartKey] = useState<string | null>(
     null
   );
+  const [isAmountFocused, setIsAmountFocused] = useState(false);
   const floatingBarRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const keyboardHeight = useKeyboardInset();
+  const isCompactBar = isMobileSheet && (keyboardHeight > 100 || isAmountFocused);
+  const cbLabels = CHECKOUT_BAR_LABELS.en;
 
   // Measure floating checkout bar height so scrollable content never hides behind it
   useEffect(() => {
@@ -238,7 +250,7 @@ function SaleCartPanel({
     const observer = new ResizeObserver(updateHeight);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [paymentMethod, cart.length]);
+  }, [paymentMethod, cart.length, isCompactBar]);
 
   // Briefly highlight & scroll newly added/scanned item into view
   useEffect(() => {
@@ -352,8 +364,11 @@ function SaleCartPanel({
 
       {/* Scrollable Cart + Discount + Payment Method + Customer Body */}
       <div
-        className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 space-y-3.5 bg-[#faf9f6]/60"
-        style={{ paddingBottom: floatingBarHeight + 16 }}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 space-y-3.5 bg-[#faf9f6]/60"
+        style={{
+          paddingBottom:
+            floatingBarHeight + (isMobileSheet ? keyboardHeight : 0) + 16,
+        }}
       >
         {cart.length === 0 ? (
           <div className="py-10 px-4 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-dashed border-gray-200">
@@ -722,31 +737,39 @@ function SaleCartPanel({
       {/* Permanently Floating Bottom Checkout Bar */}
       <div
         ref={floatingBarRef}
-        className="absolute bottom-0 inset-x-0 z-20 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] rounded-t-2xl px-3.5 pt-2.5 space-y-2"
-        style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
+        className="absolute inset-x-0 z-20 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] rounded-t-2xl px-3.5 pt-2.5 space-y-2 transition-all duration-200"
+        style={{
+          bottom: isMobileSheet ? keyboardHeight : 0,
+          paddingBottom:
+            isMobileSheet && keyboardHeight > 0
+              ? "8px"
+              : "max(12px, env(safe-area-inset-bottom))",
+        }}
       >
         {/* a. Amount Received (Cash only) */}
         {paymentMethod === "Cash" && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-1.5 flex-wrap">
               <label className="text-[11px] font-bold text-gray-700">
-                Amount Received (৳)
+                {cbLabels.amountReceived}
               </label>
               {totals.grandTotal > 0 && (
                 <div className="flex items-center gap-1 flex-wrap">
                   <button
                     type="button"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() =>
                       setAmountReceivedInput(totals.grandTotal.toFixed(2))
                     }
                     className="px-2 py-0.5 rounded-md bg-[#f3f0ea] hover:bg-gray-200 text-[10px] font-bold text-gray-900 transition-colors"
                   >
-                    Exact
+                    {cbLabels.exact}
                   </button>
                   {[500, 1000].map((note) => (
                     <button
                       key={note}
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setAmountReceivedInput(String(note))}
                       className="px-2 py-0.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-gray-100 text-[10px] font-bold text-gray-700 transition-colors"
                     >
@@ -755,10 +778,11 @@ function SaleCartPanel({
                   ))}
                   <button
                     type="button"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setAmountReceivedInput("0")}
                     className="px-2 py-0.5 rounded-md bg-red-100 hover:bg-red-200 text-[10px] font-bold text-red-900 transition-colors"
                   >
-                    ৳0 Due
+                    {cbLabels.dueZero}
                   </button>
                 </div>
               )}
@@ -771,7 +795,23 @@ function SaleCartPanel({
               <input
                 type="text"
                 inputMode="decimal"
+                enterKeyHint="done"
                 value={amountReceivedInput}
+                onFocus={() => {
+                  setIsAmountFocused(true);
+                  setTimeout(() => {
+                    floatingBarRef.current?.scrollIntoView({
+                      block: "nearest",
+                    });
+                  }, 150);
+                }}
+                onBlur={() => setIsAmountFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
                 onChange={(e) => setAmountReceivedInput(e.target.value)}
                 placeholder="0.00"
                 className="w-full min-h-[42px] pl-7 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-extrabold text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:bg-white focus:border-gray-900 transition-colors"
@@ -780,75 +820,95 @@ function SaleCartPanel({
           </div>
         )}
 
-        {/* b. Compact Summary Card */}
-        <div className="bg-[#faf9f6] px-3 py-2 rounded-xl border border-gray-200/80 space-y-1">
-          <div className="flex items-center justify-between text-[11px] text-gray-600">
-            <span>Subtotal</span>
-            <span className="font-bold text-gray-900">
-              ৳{formatBDT(totals.subtotal)}
+        {/* b. Summary: Compact single-line when keyboard open, Full card otherwise */}
+        {isCompactBar ? (
+          <div className="bg-[#faf9f6] px-3 py-1.5 rounded-xl border border-gray-200/80 flex items-center justify-between gap-2 text-[11px] transition-opacity duration-150">
+            <span className="font-extrabold text-gray-900 truncate">
+              {cbLabels.grandTotal}: ৳{formatBDT(totals.grandTotal)}
             </span>
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-gray-600">
-            <span>
-              Discount
-              {totals.discountType === "percentage" && totals.discountValue > 0
-                ? ` (${totals.discountValue}%)`
-                : ""}
+            <span className="text-gray-300">|</span>
+            <span className="font-bold text-emerald-700 truncate">
+              {cbLabels.changeShort}: ৳{formatBDT(totals.changeToReturn)}
             </span>
+            <span className="text-gray-300">|</span>
             <span
-              className={`font-bold ${
-                totals.discountAmount > 0 ? "text-emerald-700" : "text-gray-400"
+              className={`font-bold truncate ${
+                totals.dueAmount > 0 ? "text-amber-700" : "text-gray-600"
               }`}
             >
-              -৳{formatBDT(totals.discountAmount)}
+              {cbLabels.dueShort}: ৳{formatBDT(totals.dueAmount)}
             </span>
           </div>
-          <div className="pt-1 border-t border-gray-200 flex items-baseline justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wide text-gray-900">
-              Grand Total
-            </span>
-            <span className="text-lg font-black text-gray-900 tracking-tight">
-              ৳{formatBDT(totals.grandTotal)}
-            </span>
-          </div>
-
-          <div className="pt-1 grid grid-cols-2 gap-1.5">
-            <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-100">
-              <span className="block text-[9px] font-bold uppercase text-emerald-700 leading-tight">
-                Change to Return
-              </span>
-              <span className="text-xs font-extrabold text-emerald-900">
-                ৳{formatBDT(totals.changeToReturn)}
+        ) : (
+          <div className="bg-[#faf9f6] px-3 py-2 rounded-xl border border-gray-200/80 space-y-1 transition-opacity duration-150">
+            <div className="flex items-center justify-between text-[11px] text-gray-600">
+              <span>{cbLabels.subtotal}</span>
+              <span className="font-bold text-gray-900">
+                ৳{formatBDT(totals.subtotal)}
               </span>
             </div>
-
-            <div
-              className={`px-2.5 py-1.5 rounded-lg border ${
-                totals.dueAmount > 0
-                  ? "bg-amber-50/80 border-amber-200"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[9px] font-bold uppercase text-gray-600 leading-tight">
-                  Due Amount
-                </span>
-                <span
-                  className={`px-1 py-0.2 rounded text-[9px] font-bold border leading-tight ${statusBadgeClass}`}
-                >
-                  {totals.paymentStatus}
-                </span>
-              </div>
+            <div className="flex items-center justify-between text-[11px] text-gray-600">
+              <span>
+                {cbLabels.discount}
+                {totals.discountType === "percentage" && totals.discountValue > 0
+                  ? ` (${totals.discountValue}%)`
+                  : ""}
+              </span>
               <span
-                className={`text-xs font-extrabold ${
-                  totals.dueAmount > 0 ? "text-amber-900" : "text-gray-900"
+                className={`font-bold ${
+                  totals.discountAmount > 0 ? "text-emerald-700" : "text-gray-400"
                 }`}
               >
-                ৳{formatBDT(totals.dueAmount)}
+                -৳{formatBDT(totals.discountAmount)}
               </span>
             </div>
+            <div className="pt-1 border-t border-gray-200 flex items-baseline justify-between">
+              <span className="text-xs font-extrabold uppercase tracking-wide text-gray-900">
+                {cbLabels.grandTotal}
+              </span>
+              <span className="text-lg font-black text-gray-900 tracking-tight">
+                ৳{formatBDT(totals.grandTotal)}
+              </span>
+            </div>
+
+            <div className="pt-1 grid grid-cols-2 gap-1.5">
+              <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-100">
+                <span className="block text-[9px] font-bold uppercase text-emerald-700 leading-tight">
+                  {cbLabels.changeToReturn}
+                </span>
+                <span className="text-xs font-extrabold text-emerald-900">
+                  ৳{formatBDT(totals.changeToReturn)}
+                </span>
+              </div>
+
+              <div
+                className={`px-2.5 py-1.5 rounded-lg border ${
+                  totals.dueAmount > 0
+                    ? "bg-amber-50/80 border-amber-200"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[9px] font-bold uppercase text-gray-600 leading-tight">
+                    {cbLabels.dueAmount}
+                  </span>
+                  <span
+                    className={`px-1 py-0.2 rounded text-[9px] font-bold border leading-tight ${statusBadgeClass}`}
+                  >
+                    {totals.paymentStatus}
+                  </span>
+                </div>
+                <span
+                  className={`text-xs font-extrabold ${
+                    totals.dueAmount > 0 ? "text-amber-900" : "text-gray-900"
+                  }`}
+                >
+                  ৳{formatBDT(totals.dueAmount)}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* c. Complete Sale Button */}
         <button
@@ -861,12 +921,12 @@ function SaleCartPanel({
             {isSubmitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Saving Sale...</span>
+                <span>{cbLabels.savingSale}</span>
               </>
             ) : (
               <>
                 <Check className="w-5 h-5 stroke-[2.5]" />
-                <span>Complete Sale</span>
+                <span>{cbLabels.completeSale}</span>
               </>
             )}
           </span>
@@ -889,21 +949,33 @@ export default function POSPage() {
     null
   );
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [toast, setToast] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
+  const lastErrorScanRef = useRef<{ code: string; ts: number } | null>(null);
+  const [toast, setToast] = useState<PosToastData | null>(null);
+  const [scannerAlert, setScannerAlert] = useState<{ message: string } | null>(
+    null
+  );
 
   const showToast = useCallback(
     (message: string, type: "success" | "error") => {
-      setToast({ message, type });
+      const id = Date.now();
+      setToast({ id, message, type });
       playBeep(type);
+      if (type === "error" && typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
       setTimeout(() => {
-        setToast((prev) => (prev?.message === message ? null : prev));
-      }, 3200);
+        setToast((prev) => (prev?.id === id ? null : prev));
+      }, 3800);
     },
     []
   );
+
+  const showScannerAlert = useCallback((message: string) => {
+    setScannerAlert({ message });
+    setTimeout(() => {
+      setScannerAlert((prev) => (prev?.message === message ? null : prev));
+    }, 3800);
+  }, []);
 
   // Inventory & Variant state
   const [products, setProducts] = useState<Product[]>([]);
@@ -1284,7 +1356,7 @@ export default function POSPage() {
   );
 
   const addResolvedItemToCart = useCallback(
-    (product: Product, variant: ProductVariant | null) => {
+    (product: Product, variant: ProductVariant | null): boolean => {
       const availableBase = Math.max(0, Number(product.stock) || 0);
       const mult =
         variant?.stock_multiplier && Number(variant.stock_multiplier) > 0
@@ -1303,31 +1375,35 @@ export default function POSPage() {
         : null;
       const cartKey = `${product.id}::${variant ? variant.id : "base"}`;
 
+      const currentUsedBase = cart
+        .filter((it) => it.id === product.id)
+        .reduce((sum, it) => sum + it.quantity * it.stockMultiplier, 0);
+      const existing = cart.find((it) => it.cartKey === cartKey);
+
+      const stockCheck = validateStock({
+        productName: product.name,
+        availableStock: availableBase,
+        currentUsedStock: currentUsedBase,
+        additionalUnits: mult,
+        qtyInCart: existing ? existing.quantity : currentUsedBase,
+        locale: "bn",
+      });
+      if (!stockCheck.allowed) {
+        const msg =
+          stockCheck.message || STOCK_ERROR_MESSAGES.bn.insufficientStock;
+        showToast(msg, "error");
+        return false;
+      }
+
+      setLastAddedItem({ cartKey, nonce: Date.now() });
+      setRecentCartKeys((keys) => [
+        cartKey,
+        ...keys.filter((k) => k !== cartKey),
+      ]);
+
       setCart((prev) => {
-        const currentUsedBase = prev
-          .filter((it) => it.id === product.id)
-          .reduce((sum, it) => sum + it.quantity * it.stockMultiplier, 0);
-
-        const stockCheck = calculateNewStock(
-          availableBase,
-          currentUsedBase + mult,
-          1
-        );
-        if (!stockCheck.allowed) {
-          showToast(
-            `Insufficient stock for "${product.name}" (${availableBase} left).`,
-            "error"
-          );
-          return prev;
-        }
-
-        const existing = prev.find((it) => it.cartKey === cartKey);
-        setLastAddedItem({ cartKey, nonce: Date.now() });
-        setRecentCartKeys((keys) => [
-          cartKey,
-          ...keys.filter((k) => k !== cartKey),
-        ]);
-        if (existing) {
+        const prevExisting = prev.find((it) => it.cartKey === cartKey);
+        if (prevExisting) {
           return prev.map((it) =>
             it.cartKey === cartKey ? { ...it, quantity: it.quantity + 1 } : it
           );
@@ -1351,14 +1427,25 @@ export default function POSPage() {
           },
         ];
       });
+      return true;
     },
-    [showToast]
+    [cart, showToast]
   );
 
   const handleProductCardTap = useCallback(
     (product: Product) => {
-      if ((Number(product.stock) || 0) <= 0) {
-        showToast(`"${product.name}" is out of stock.`, "error");
+      const check = validateStock({
+        productName: product.name,
+        availableStock: Number(product.stock) || 0,
+        currentUsedStock: 0,
+        additionalUnits: 1,
+        locale: "bn",
+      });
+      if (!check.allowed) {
+        showToast(
+          check.message || STOCK_ERROR_MESSAGES.bn.noStock,
+          "error"
+        );
         return;
       }
       const prodVariants = variantsByProduct.get(product.id) || [];
@@ -1373,39 +1460,43 @@ export default function POSPage() {
 
   const handleUpdateQuantityDelta = useCallback(
     (cartKey: string, delta: number) => {
-      setCart((prev) => {
-        const target = prev.find((it) => it.cartKey === cartKey);
-        if (!target) return prev;
-        const nextQty = target.quantity + delta;
-        if (nextQty <= 0) {
-          return prev.filter((it) => it.cartKey !== cartKey);
-        }
+      const target = cart.find((it) => it.cartKey === cartKey);
+      if (!target) return;
+      const nextQty = target.quantity + delta;
+      if (nextQty <= 0) {
+        setCart((prev) => prev.filter((it) => it.cartKey !== cartKey));
+        return;
+      }
 
-        if (delta > 0) {
-          const availableBase = productStockMap.get(target.id) ?? 0;
-          const otherUsed = prev
-            .filter((it) => it.id === target.id && it.cartKey !== cartKey)
-            .reduce((sum, it) => sum + it.quantity * it.stockMultiplier, 0);
-          const check = calculateNewStock(
-            availableBase,
-            otherUsed + nextQty * target.stockMultiplier,
-            1
+      if (delta > 0) {
+        const availableBase = productStockMap.get(target.id) ?? 0;
+        const totalUsedBase = cart
+          .filter((it) => it.id === target.id)
+          .reduce((sum, it) => sum + it.quantity * it.stockMultiplier, 0);
+        const check = validateStock({
+          productName: target.name,
+          availableStock: availableBase,
+          currentUsedStock: totalUsedBase,
+          additionalUnits: delta * target.stockMultiplier,
+          qtyInCart: target.quantity,
+          locale: "bn",
+        });
+        if (!check.allowed) {
+          showToast(
+            check.message || STOCK_ERROR_MESSAGES.bn.insufficientStock,
+            "error"
           );
-          if (!check.allowed) {
-            showToast(
-              `Only ${availableBase} in stock for "${target.name}".`,
-              "error"
-            );
-            return prev;
-          }
+          return;
         }
+      }
 
-        return prev.map((it) =>
+      setCart((prev) =>
+        prev.map((it) =>
           it.cartKey === cartKey ? { ...it, quantity: nextQty } : it
-        );
-      });
+        )
+      );
     },
-    [productStockMap, showToast]
+    [cart, productStockMap, showToast]
   );
 
   const handleSetQuantityDirect = useCallback(
@@ -1482,41 +1573,70 @@ export default function POSPage() {
 
   const processScannedCode = useCallback(
     (code: string, fromCamera = false) => {
-      if (fromCamera) {
-        setIsScannerOpen(false);
-      }
+      const normalizedCode = code.trim().toLowerCase();
+      const triggerScanError = (message: string) => {
+        const now = Date.now();
+        const last = lastErrorScanRef.current;
+        if (
+          fromCamera &&
+          last &&
+          last.code === normalizedCode &&
+          now - last.ts < 1500
+        ) {
+          return;
+        }
+        lastErrorScanRef.current = { code: normalizedCode, ts: now };
+        showToast(message, "error");
+        if (fromCamera) {
+          showScannerAlert(message);
+        }
+      };
 
       const match = lookupByCode(code);
       if (!match) {
-        if (fromCamera) {
-          playBeep("error");
-          setCameraScanPrompt({
-            status: "error",
-            message: `No product found for barcode "${code.trim()}".`,
-          });
-        } else {
-          showToast(`No product found for code "${code.trim()}".`, "error");
-        }
+        triggerScanError(
+          STOCK_ERROR_MESSAGES.bn.productNotFound(code.trim())
+        );
         return;
       }
 
-      if ((Number(match.product.stock) || 0) <= 0) {
-        if (fromCamera) {
-          playBeep("error");
-          setCameraScanPrompt({
-            status: "error",
-            productName: match.product.name,
-            message: `"${match.product.name}" is out of stock.`,
-          });
-        } else {
-          showToast(`"${match.product.name}" is out of stock.`, "error");
-        }
+      const availableBase = Math.max(0, Number(match.product.stock) || 0);
+      const mult =
+        match.variant?.stock_multiplier &&
+        Number(match.variant.stock_multiplier) > 0
+          ? Number(match.variant.stock_multiplier)
+          : 1;
+      const currentUsedBase = cart
+        .filter((it) => it.id === match.product.id)
+        .reduce((sum, it) => sum + it.quantity * it.stockMultiplier, 0);
+      const targetCartKey = `${match.product.id}::${
+        match.variant ? match.variant.id : "base"
+      }`;
+      const existingItem = cart.find((it) => it.cartKey === targetCartKey);
+
+      const stockCheck = validateStock({
+        productName: match.product.name,
+        availableStock: availableBase,
+        currentUsedStock: currentUsedBase,
+        additionalUnits: match.variant ? mult : 1,
+        qtyInCart: existingItem ? existingItem.quantity : currentUsedBase,
+        locale: "bn",
+      });
+
+      if (!stockCheck.allowed) {
+        triggerScanError(
+          stockCheck.message || STOCK_ERROR_MESSAGES.bn.noStock
+        );
         return;
       }
 
       if (!match.variant) {
         const prodVariants = variantsByProduct.get(match.product.id) || [];
         if (prodVariants.length > 0) {
+          if (fromCamera) {
+            setIsScannerOpen(false);
+            setScannerAlert(null);
+          }
           setScanFromCamera(fromCamera);
           setVariantPickerProduct(match.product);
           setSearchQuery("");
@@ -1536,7 +1656,13 @@ export default function POSPage() {
           : match.variant.variant_value
         : null;
 
-      addResolvedItemToCart(match.product, match.variant);
+      const added = addResolvedItemToCart(match.product, match.variant);
+      if (!added) return;
+
+      if (fromCamera) {
+        setIsScannerOpen(false);
+        setScannerAlert(null);
+      }
       if (typeof navigator !== "undefined" && navigator.vibrate) {
         navigator.vibrate(30);
       }
@@ -1554,7 +1680,14 @@ export default function POSPage() {
         showToast(`Added "${match.product.name}"`, "success");
       }
     },
-    [lookupByCode, variantsByProduct, addResolvedItemToCart, showToast]
+    [
+      cart,
+      lookupByCode,
+      variantsByProduct,
+      addResolvedItemToCart,
+      showToast,
+      showScannerAlert,
+    ]
   );
 
   const handleCameraScan = useCallback(
@@ -1721,19 +1854,8 @@ export default function POSPage() {
 
   return (
     <div className="flex flex-1 h-full min-h-0 overflow-hidden relative bg-[#faf9f6]">
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`fixed top-16 md:top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-bold text-sm max-w-[92vw] ${
-            toast.type === "success"
-              ? "bg-gray-900 text-white"
-              : "bg-red-600 text-white"
-          }`}
-        >
-          <span>{toast.type === "success" ? "✓" : "!"}</span>
-          <span className="truncate">{toast.message}</span>
-        </div>
-      )}
+      {/* Top-level Portal Toast Notification (always unblurred & above all overlays) */}
+      <PosToastPortal toast={toast} onDismiss={() => setToast(null)} />
 
       {/* Left / Main Catalog Column */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
@@ -2155,7 +2277,8 @@ export default function POSPage() {
                       type="button"
                       onClick={() => {
                         const prodName = variantPickerProduct.name;
-                        addResolvedItemToCart(variantPickerProduct, v);
+                        const added = addResolvedItemToCart(variantPickerProduct, v);
+                        if (!added) return;
                         setVariantPickerProduct(null);
                         if (scanFromCamera) {
                           setScanFromCamera(false);
@@ -2226,7 +2349,12 @@ export default function POSPage() {
       {isScannerOpen && (
         <BarcodeScanner
           onScan={handleCameraScan}
-          onClose={() => setIsScannerOpen(false)}
+          inlineAlert={scannerAlert}
+          onDismissAlert={() => setScannerAlert(null)}
+          onClose={() => {
+            setIsScannerOpen(false);
+            setScannerAlert(null);
+          }}
         />
       )}
 

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { calculateLineTotal, formatBDT } from "@/lib/calculations";
 import { SCAN_MINI_CART_LABELS } from "@/lib/i18n/scan-cart";
+import { validateStock } from "@/lib/stock-validation";
+import { Z_INDEX } from "@/lib/z-index";
 
 export interface ScanMiniCartItem {
   cartKey: string;
@@ -67,7 +69,10 @@ export default function ScanMiniCartSheet({
   const t = SCAN_MINI_CART_LABELS.bn;
   const tEn = SCAN_MINI_CART_LABELS.en;
   const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
-  const [stockWarningKey, setStockWarningKey] = useState<string | null>(null);
+  const [stockWarning, setStockWarning] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Compute total base-stock used per product across all variants in cart
@@ -116,14 +121,30 @@ export default function ScanMiniCartSheet({
   const handleIncrement = (item: ScanMiniCartItem) => {
     const availableBase = productStockMap.get(item.id) ?? 0;
     const usedBase = usedBaseStockMap.get(item.id) ?? 0;
-    if (usedBase + item.stockMultiplier > availableBase) {
-      setStockWarningKey(item.cartKey);
+    const check = validateStock({
+      productName: item.name,
+      availableStock: availableBase,
+      currentUsedStock: usedBase,
+      additionalUnits: item.stockMultiplier,
+      qtyInCart: item.quantity,
+      locale: "bn",
+    });
+    if (!check.allowed) {
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+      setStockWarning({
+        key: item.cartKey,
+        message: check.message || t.stockLimitReached,
+      });
       setTimeout(() => {
-        setStockWarningKey((prev) => (prev === item.cartKey ? null : prev));
-      }, 2200);
+        setStockWarning((prev) =>
+          prev?.key === item.cartKey ? null : prev
+        );
+      }, 3500);
       return;
     }
-    setStockWarningKey(null);
+    setStockWarning(null);
     onUpdateQuantityDelta(item.cartKey, 1);
   };
 
@@ -136,7 +157,10 @@ export default function ScanMiniCartSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4">
+    <div
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
+      style={{ zIndex: Z_INDEX.scanMiniCart }}
+    >
       <div className="bg-white w-full sm:max-w-md max-h-[88dvh] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* a. Header */}
         <div className="px-5 pt-4 pb-3 border-b border-gray-100 flex items-start justify-between gap-3 shrink-0 bg-white">
@@ -192,8 +216,8 @@ export default function ScanMiniCartSheet({
             {orderedCart.map((item) => {
               const lineTotal = calculateLineTotal(item.unitPrice, item.quantity);
               const isHighlighted = highlightedKey === item.cartKey;
-              const hasStockWarning = stockWarningKey === item.cartKey;
-              const availableBase = productStockMap.get(item.id) ?? 0;
+              const inlineWarning =
+                stockWarning?.key === item.cartKey ? stockWarning.message : null;
 
               return (
                 <div
@@ -274,9 +298,15 @@ export default function ScanMiniCartSheet({
                       </button>
                     </div>
 
-                    {hasStockWarning && (
-                      <span className="text-[11px] font-bold text-red-600 truncate">
-                        {t.stockLimitReached} ({availableBase})
+                    {inlineWarning && (
+                      <span
+                        className="text-[11px] font-bold text-red-600 leading-tight"
+                        style={{
+                          fontFamily:
+                            "var(--font-noto-bengali), var(--font-geist-sans), sans-serif",
+                        }}
+                      >
+                        {inlineWarning}
                       </span>
                     )}
 
