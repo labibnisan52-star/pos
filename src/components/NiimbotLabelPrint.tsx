@@ -202,7 +202,18 @@ export default function NiimbotLabelPrint({
       await printTask.printInit();
       try {
         await printTask.printPage(encodedImage, count);
-        await printTask.waitForFinished();
+        try {
+          await printTask.waitForFinished();
+        } catch (waitErr: unknown) {
+          const waitMsg =
+            waitErr instanceof Error ? waitErr.message : String(waitErr);
+          if (
+            !waitMsg.includes("WriteRfidFail") &&
+            !waitMsg.includes("error 20")
+          ) {
+            throw waitErr;
+          }
+        }
       } finally {
         await globalClient.abstraction.printEnd().catch(() => {});
       }
@@ -224,7 +235,7 @@ export default function NiimbotLabelPrint({
 
       const friendlyMsg =
         errorMsg.includes("WriteRfidFail") || errorMsg.includes("error 20")
-          ? "Printer RFID error (WriteRfidFail): Re-seat the NIIMBOT label roll and close the lid tightly, or use 'Device Printer' instead."
+          ? "NIIMBOT firmware rejected the non-RFID roll (WriteRfidFail). Use an official NIIMBOT RFID roll (or place a NIIMBOT RFID sticker/core in the tray), or choose 'Device Printer'."
           : `Print failed: ${errorMsg}`;
 
       setStatus({
