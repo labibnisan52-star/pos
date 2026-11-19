@@ -25,14 +25,11 @@ export function buildLabelCanvas(
   widthDots: number,
   heightDots: number
 ): HTMLCanvasElement {
-  // Tuned for 50x15mm (384x120 dots) compact content; if canvas H > 120 (e.g. 27mm pitch),
-  // keep printed content at 15mm (120 dots) so it stays compact and centered on the sticker.
+  // Match the exact 50x20mm (384x160 dots) NIIMBOT label style & layout
   const W = Math.max(160, Math.ceil(widthDots / 8) * 8);
-  const H = Math.max(80, Math.round(heightDots));
-  const contentH = Math.min(H, 120);
-  const topOffset = H > contentH ? Math.round((H - contentH) * 0.35) : 0;
+  const H = Math.max(96, Math.round(heightDots));
   const scaleX = W / 384;
-  const scaleY = contentH / 120;
+  const scaleY = H / 160;
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -45,62 +42,80 @@ export function buildLabelCanvas(
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = "#000000";
 
-  // 1. Top Center: Brand Name "RIZQ"
+  // Top Center: Brand Name "RIZQ"
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `italic 900 ${Math.max(14, Math.round(18 * scaleY))}px 'Arial Black', Impact, sans-serif`;
-  ctx.fillText("RIZQ", W / 2, topOffset + Math.round(2 * scaleY));
+  ctx.font = `italic 900 ${Math.round(32 * scaleY)}px 'Arial Black', Impact, sans-serif`;
+  ctx.fillText("RIZQ", W / 2, Math.round(6 * scaleY));
 
-  // 2. Middle Row (all in one row): Product Name (left) | Barcode Number (center) | Price (right)
-  const rowY = topOffset + Math.round(25 * scaleY);
-  const sidePad = Math.round(16 * scaleX);
-
-  ctx.textAlign = "left";
-  ctx.font = `bold ${Math.max(10, Math.round(11 * scaleY))}px ${BENGALI_FONT_STACK}`;
-  ctx.fillText(data.productName, sidePad, rowY, Math.round(W * 0.36));
-
+  // Middle: Code128 Barcode with number below
   const effectiveCode =
     data.barcode && data.barcode.length < 8
       ? data.barcode.padStart(8, "0")
       : data.barcode || "00000000";
-  ctx.textAlign = "center";
-  ctx.font = `bold ${Math.max(10, Math.round(11 * scaleY))}px monospace`;
-  ctx.fillText(effectiveCode, W / 2, rowY, Math.round(W * 0.28));
-
-  ctx.textAlign = "right";
-  ctx.font = `bold ${Math.max(12, Math.round(13 * scaleY))}px Arial, Helvetica, sans-serif`;
-  ctx.fillText(
-    `TK ${data.price.toFixed(2)}`,
-    W - sidePad,
-    rowY - Math.round(1 * scaleY),
-    Math.round(W * 0.28)
-  );
-
-  // 3. Bottom: Code128 Barcode bars (number already printed in the row above)
-  const barcodeY = topOffset + Math.round(44 * scaleY);
-  const targetW = Math.round(240 * scaleX);
-  const targetH = Math.max(
-    Math.round(44 * scaleY),
-    topOffset + contentH - barcodeY - Math.round(4 * scaleY)
-  );
-  const barcodeX = Math.round((W - targetW) / 2);
 
   const barcodeCanvas = document.createElement("canvas");
   try {
     JsBarcode(barcodeCanvas, effectiveCode, {
       format: "CODE128",
-      width: 1.5,
-      height: 52,
-      displayValue: false,
-      margin: 2,
+      width: 1.8,
+      height: 55,
+      displayValue: true,
+      fontSize: 12,
+      margin: 4,
       background: "#ffffff",
       lineColor: "#000000",
     });
 
+    const targetW = Math.round(280 * scaleX);
+    const targetH = Math.round(75 * scaleY);
+    const barcodeX = Math.round((W - targetW) / 2);
+    const barcodeY = Math.round(40 * scaleY);
     ctx.drawImage(barcodeCanvas, barcodeX, barcodeY, targetW, targetH);
   } catch {
-    // Barcode number is already rendered above
+    ctx.font = "bold 16px monospace";
+    ctx.fillText(effectiveCode, W / 2, Math.round(52 * scaleY), W - 24);
   }
+
+  // Bottom Left: Product Name (up to 2 lines)
+  ctx.textAlign = "left";
+  ctx.font = `bold ${Math.round(16 * scaleY)}px ${BENGALI_FONT_STACK}`;
+  const maxTextWidth = W * 0.65;
+  const words = data.productName.split(" ");
+  let lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxTextWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  lines = lines.slice(0, 2);
+
+  const textStartY = Math.round(122 * scaleY);
+  const lineHeight = Math.round(18 * scaleY);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(
+      lines[i],
+      Math.round(12 * scaleX),
+      textStartY + i * lineHeight,
+      maxTextWidth
+    );
+  }
+
+  // Bottom Right: Price ("TK 500.00")
+  ctx.textAlign = "right";
+  ctx.font = `bold ${Math.round(26 * scaleY)}px Arial, Helvetica, sans-serif`;
+  ctx.fillText(
+    `TK ${data.price.toFixed(2)}`,
+    W - Math.round(12 * scaleX),
+    Math.round(126 * scaleY)
+  );
 
   return canvas;
 }

@@ -87,39 +87,22 @@ export default function NiimbotLabelPrint({
       ctx.imageSmoothingEnabled = false;
 
       // NIIMBOT B1 is 203 DPI, max printhead width is 48mm (384 pixels)
-      // Compact 50x15mm (384x120 dots) stacked layout
+      // For a 50x20mm label feeding horizontally, we use:
       const W = 384;
-      const H = 120;
+      const H = 160;
       canvas.width = W;
       canvas.height = H;
 
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, W, H);
 
-      // 1. Top Center: Brand Name "RIZQ"
+      // Top Center: Brand Name "RIZQ"
       ctx.fillStyle = "#000000";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.font = "italic 900 18px 'Arial Black', Impact, sans-serif";
-      ctx.fillText("RIZQ", W / 2, 2);
+      ctx.font = "italic 900 32px 'Arial Black', Impact, sans-serif";
+      ctx.fillText("RIZQ", W / 2, 6);
 
-      // 2. Middle Row (all in one row): Product Name (left) | Barcode Number (center) | Price (right)
-      const rowY = 25;
-      const sidePad = 16;
-
-      ctx.textAlign = "left";
-      ctx.font = "bold 11px Arial, Helvetica, sans-serif";
-      ctx.fillText(productName, sidePad, rowY, Math.round(W * 0.36));
-
-      ctx.textAlign = "center";
-      ctx.font = "bold 11px monospace";
-      ctx.fillText(effectiveBarcode || "00000000", W / 2, rowY, Math.round(W * 0.28));
-
-      ctx.textAlign = "right";
-      ctx.font = "bold 13px Arial, Helvetica, sans-serif";
-      ctx.fillText(`TK ${productPrice.toFixed(2)}`, W - sidePad, rowY - 1, Math.round(W * 0.28));
-
-      // 3. Bottom: Barcode bars
       const barcodeContainer = barcodeContainerRef.current;
       if (barcodeContainer && effectiveBarcode) {
         const svgElement = barcodeContainer.querySelector("svg");
@@ -130,12 +113,47 @@ export default function NiimbotLabelPrint({
 
           const img = new Image();
           img.onload = () => {
-            const barcodeY = 44;
-            const targetW = 240;
-            const targetH = Math.max(44, H - barcodeY - 4);
+            // Middle: Barcode with Number Below
+            const targetW = 280;
+            const targetH = 75;
             const barcodeX = (W - targetW) / 2;
+            const barcodeY = 40;
             ctx.drawImage(img, barcodeX, barcodeY, targetW, targetH);
             URL.revokeObjectURL(url);
+
+            // Bottom Left: Product Details
+            ctx.textAlign = "left";
+            ctx.font = "bold 16px Arial, Helvetica, sans-serif";
+            const maxTextWidth = W * 0.65;
+            const words = productName.split(" ");
+            let lines: string[] = [];
+            let currentLine = "";
+
+            for (const word of words) {
+              const testLine = currentLine ? `${currentLine} ${word}` : word;
+              const metrics = ctx.measureText(testLine);
+              if (metrics.width > maxTextWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+              } else {
+                currentLine = testLine;
+              }
+            }
+            if (currentLine) lines.push(currentLine);
+            lines = lines.slice(0, 2);
+
+            const textStartY = 122;
+            const lineHeight = 18;
+
+            for (let i = 0; i < lines.length; i++) {
+              ctx.fillText(lines[i], 12, textStartY + i * lineHeight, maxTextWidth);
+            }
+
+            // Bottom Right: Price
+            ctx.textAlign = "right";
+            ctx.font = "bold 26px Arial, Helvetica, sans-serif";
+            ctx.fillText(`TK ${productPrice.toFixed(2)}`, W - 12, 126);
+
             resolve();
           };
           img.onerror = () => {
@@ -613,7 +631,7 @@ export default function NiimbotLabelPrint({
         <canvas
           ref={canvasRef}
           width={384}
-          height={120}
+          height={160}
           style={{ background: "white" }}
         />
         <div ref={barcodeContainerRef}>
@@ -621,11 +639,11 @@ export default function NiimbotLabelPrint({
             <Barcode
               value={effectiveBarcode}
               format="CODE128"
-              width={1.5}
-              height={44}
+              width={1.8}
+              height={55}
               fontSize={12}
-              margin={2}
-              displayValue={false}
+              margin={4}
+              displayValue={true}
               background="#ffffff"
               lineColor="#000000"
             />

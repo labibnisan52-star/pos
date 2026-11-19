@@ -20,15 +20,15 @@ export const DEFAULT_USB_PRINTER_SETTINGS: UsbPrinterSettings = {
   paperWidthMm: 58,
   density: 10,
   labelWidthMm: 50,
-  labelHeightMm: 15,
+  labelHeightMm: 20,
   receiptExtraFeedLines: 4,
-  labelFeedMm: 12,
+  labelFeedMm: 3,
   defaultCopies: 1,
   cutAfterPrint: false,
   openCashDrawer: false,
 };
 
-const STORAGE_KEY = "rizq_usb_printer_settings_v3";
+const STORAGE_KEY = "rizq_usb_printer_settings_v4";
 
 export function getPaperWidthDots(paperWidthMm: 58 | 80): number {
   return paperWidthMm === 80 ? 576 : 384;
