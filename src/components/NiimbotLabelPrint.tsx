@@ -224,13 +224,16 @@ export default function NiimbotLabelPrint({
       const { ImageEncoder } = await import("@mmote/niimbluelib/dist/cjs/image_encoder");
       const { LabelType } = await import("@mmote/niimbluelib/dist/cjs/packets/index");
 
-      if (!globalClient || !globalConnected) {
+      if (!globalClient || !globalConnected || !globalClient.isConnected()) {
         setStatus(s => ({ ...s, isConnecting: true, error: null }));
         globalClient = new NiimbotBluetoothClient();
+        globalClient.on("disconnect", () => {
+          globalConnected = false;
+        });
         await globalClient.connect();
+        await globalClient.fetchPrinterInfo();
         globalConnected = true;
         setStatus(s => ({ ...s, isConnecting: false, connected: true }));
-        await globalClient.fetchPrinterInfo();
       }
 
       setStatus(s => ({ ...s, isPrinting: true, error: null }));
@@ -240,12 +243,16 @@ export default function NiimbotLabelPrint({
       const canvas = canvasRef.current;
       if (!canvas) throw new Error("Canvas not found");
 
-      const encodedImage = ImageEncoder.encodeCanvas(canvas, "top");
+      const meta = globalClient.getModelMetadata();
+      const printDirection = meta?.printDirection ?? "top";
+      const density = meta?.densityDefault ?? 3;
+
+      const encodedImage = ImageEncoder.encodeCanvas(canvas, printDirection);
       const taskType = globalClient.getPrintTaskType() || "B1";
 
       const printTask = globalClient.abstraction.newPrintTask(taskType, {
         totalPages: count,
-        density: 5,
+        density,
         labelType: LabelType.WithGaps,
       });
 
